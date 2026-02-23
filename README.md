@@ -157,6 +157,29 @@ Dynamic mode — planner generates objectives from the prompt, then worker execu
 | `write_file` | Create/overwrite a file |
 | `edit_file` | Find-and-replace in a file |
 | `exec` | Run shell commands |
+| `list_dir` | List directory contents (recursive) |
+| `search` | Search for text patterns across files |
+
+### Custom Tools
+
+Add your own tools via the `tools` config:
+
+```ts
+const agent = new Agent({
+  model: "gemini-2.5-flash",
+  tools: [{
+    name: "deploy",
+    description: "Deploy the app to production",
+    parameters: {
+      env: { type: "string", description: "Target environment", required: true },
+    },
+    execute: async (params) => {
+      // your deployment logic
+      return { success: true, output: `Deployed to ${params.env}` }
+    },
+  }],
+  objectives: [/* ... */],
+})
 
 ## Skills
 
