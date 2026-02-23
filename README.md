@@ -32,17 +32,44 @@ for await (const event of agent.run("Create hello.txt")) {
 }
 ```
 
+## Multi-turn Sessions
+
+For chatbot-style interactions, use `Session`. It maintains conversation history and re-plans objectives each turn:
+
+```ts
+import { Session } from "smart-agent"
+
+const session = new Session({ model: "gemini-2.5-flash" })
+
+for await (const event of session.send("create a hello world project")) {
+  if (event.type === "awaiting_confirmation") {
+    // Objectives are paused — review before proceeding
+    console.log("Objectives:", event.objectives)
+    session.confirmObjectives()  // or session.rejectObjectives()
+  }
+  if (event.type === "complete") {
+    console.log("Done!")
+  }
+}
+
+// Follow-up — planner adjusts objectives based on context
+for await (const event of session.send("now add unit tests")) {
+  session.confirmObjectives()
+}
+```
+
+By default, sessions require confirmation before executing (`requireConfirmation: true`). This gives the user a chance to review and approve generated objectives. Disable with `{ requireConfirmation: false }`.
+
 ## Chatbot Mode — `Agent.plan()`
 
-When you don't know the objectives upfront, `Agent.plan()` uses a planner LLM to generate them from the user's message:
+For one-shot planning without sessions:
 
 ```ts
 import { Agent } from "smart-agent"
 
-// No predefined objectives — planner generates them
 for await (const event of Agent.plan(
   "Create a greeting.txt with 'Hello World'",
-  { model: "gemini-3-flash-preview" }
+  { model: "gemini-2.5-flash" }
 )) {
   if (event.type === "planning") {
     console.log("Generated objectives:", event.objectives)
@@ -112,7 +139,8 @@ Dynamic mode — planner generates objectives from the prompt, then worker execu
 
 | Event | When |
 |-------|------|
-| `planning` | Planner generated objectives (plan() only) |
+| `planning` | Planner generated objectives |
+| `awaiting_confirmation` | Waiting for user to confirm objectives (Session only) |
 | `iteration_start` | Loop iteration begins |
 | `thinking` | LLM explains what it's doing |
 | `tool_start` / `tool_result` | Tool execution |
