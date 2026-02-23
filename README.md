@@ -15,7 +15,7 @@ import { Agent } from "smart-agent"
 
 // Predefined objectives
 const agent = new Agent({
-  model: "gemini-3-flash-preview",
+  model: "gemini-2.5-flash",
   objectives: [{
     name: "file_exists",
     description: "Create hello.txt with 'Hello World'",
@@ -254,6 +254,26 @@ When using `Agent.plan()`, the planner generates objectives using these template
 | Any | Other models | `OPENAI_API_KEY` + `OPENAI_BASE_URL` |
 
 Unknown models fall back to OpenAI-compatible `/chat/completions` API using `OPENAI_BASE_URL`.
+
+## Examples
+
+Run any example with `bun run examples/<name>.ts`:
+
+| Example | What it does |
+|---------|--------------|
+| `hello` | Creates a file — simplest possible agent |
+| `planner` | `Agent.plan()` — generates objectives from natural language |
+| `scaffold` | Multi-objective — creates project, writes tests, makes them pass |
+| `code-review` | Finds and fixes bugs in a deliberately broken file |
+| `refactor` | Splits a monolithic file into clean modules |
+| `api-gen` | Generates a REST API from a spec, writes tests, verifies them |
+| `session` | Multi-turn Session with objective confirmation/rejection |
+| `custom-tools` | Extends the agent with `http_get` and `json_transform` tools |
+
+```bash
+export GEMINI_API_KEY=your-key
+bun run examples/code-review.ts
+```
 
 ## License
 
