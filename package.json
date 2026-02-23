@@ -9,8 +9,7 @@
     ],
     "dependencies": {
         "js-yaml": "^4.1.0",
-        "measure-fn": "latest",
-        "sqlite-zod-orm": "^3.26.0"
+        "measure-fn": "latest"
     },
     "devDependencies": {
         "@types/bun": "latest",
