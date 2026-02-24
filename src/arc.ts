@@ -18,6 +18,14 @@ export function gridToText(grid: number[][]): string {
     return grid.map(row => row.join(" ")).join("\n")
 }
 
+export function gridToCompact(grid: number[][]): string {
+    return grid.map(row => row.join("")).join("|")
+}
+
+export function compactToGrid(compact: string): number[][] {
+    return compact.split("|").map(row => row.split("").map(Number))
+}
+
 export function gridsEqual(a: number[][], b: number[][]): boolean {
     if (a.length !== b.length) return false
     for (let i = 0; i < a.length; i++) {
@@ -43,11 +51,37 @@ export function gridSimilarity(predicted: number[][], expected: number[][]): num
 }
 
 export function parseGrid(text: string): number[][] | null {
+    // Support both space-separated and compact (no spaces) formats
     const lines = text.trim().split("\n")
         .map(l => l.trim())
-        .filter(l => l.length > 0 && /^[\d\s]+$/.test(l))
+        .filter(l => l.length > 0 && /^[\d\s|]+$/.test(l))
+
+    // Handle compact format "012|345|678"
+    if (lines.length === 1 && lines[0].includes("|")) {
+        return compactToGrid(lines[0])
+    }
+
     if (lines.length === 0) return null
-    return lines.map(line => line.split(/\s+/).map(Number))
+    return lines.map(line => {
+        // If digits have spaces between them, split on spaces
+        if (line.includes(" ")) return line.split(/\s+/).map(Number)
+        // Otherwise each char is a digit
+        return line.split("").map(Number)
+    })
+}
+
+export function gridDimensions(grid: number[][]): string {
+    return `${grid.length}×${grid[0]?.length || 0}`
+}
+
+// ── ARC color map for text visualization ──
+const COLOR_NAMES: Record<number, string> = {
+    0: "⬛", 1: "🟦", 2: "🟥", 3: "🟩", 4: "🟨",
+    5: "⬜", 6: "🟪", 7: "🟧", 8: "🔵", 9: "🟫",
+}
+
+export function gridToEmoji(grid: number[][]): string {
+    return grid.map(row => row.map(c => COLOR_NAMES[c] || `[${c}]`).join("")).join("\n")
 }
 
 // ── Fetch puzzle from ARC-AGI GitHub repo ──
@@ -61,12 +95,30 @@ export const DEFAULT_PUZZLE_IDS = [
     "4258a5f9", // 3×3 ring around 5s (medium)
 ]
 
+const ARC_BASE_URL = "https://raw.githubusercontent.com/fchollet/ARC-AGI/master/data"
+
 export async function fetchPuzzle(id: string): Promise<ArcPuzzle> {
-    const url = `https://raw.githubusercontent.com/fchollet/ARC-AGI/master/data/training/${id}.json`
+    // Try training first, then evaluation
+    for (const split of ["training", "evaluation"]) {
+        const url = `${ARC_BASE_URL}/${split}/${id}.json`
+        const res = await fetch(url)
+        if (res.ok) {
+            const data = await res.json()
+            return { id, ...data } as ArcPuzzle
+        }
+    }
+    throw new Error(`Puzzle ${id} not found in training or evaluation sets`)
+}
+
+/** Fetch all puzzle IDs from a split */
+export async function fetchPuzzleIndex(split: "training" | "evaluation" = "training"): Promise<string[]> {
+    const url = `https://api.github.com/repos/fchollet/ARC-AGI/contents/data/${split}`
     const res = await fetch(url)
-    if (!res.ok) throw new Error(`Failed to fetch puzzle ${id}: HTTP ${res.status}`)
-    const data = await res.json()
-    return { id, ...data } as ArcPuzzle
+    if (!res.ok) throw new Error(`Failed to fetch puzzle index: HTTP ${res.status}`)
+    const data: any[] = await res.json()
+    return data
+        .filter((f: any) => f.name.endsWith(".json"))
+        .map((f: any) => f.name.replace(".json", ""))
 }
 
 /**
@@ -107,8 +159,23 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 const ex = puzzle.train[i]
                 return {
                     success: true,
-                    output: `Training Example ${i + 1}:\n\nInput (${ex.input.length}×${ex.input[0].length}):\n${gridToText(ex.input)}\n\nOutput (${ex.output.length}×${ex.output[0].length}):\n${gridToText(ex.output)}`,
+                    output: `Training Example ${i + 1}:\n\nInput (${gridDimensions(ex.input)}):\n${gridToText(ex.input)}\n\nOutput (${gridDimensions(ex.output)}):\n${gridToText(ex.output)}`,
                 }
+            },
+        },
+        {
+            name: "view_all_training",
+            description: "View ALL training examples at once. Use this first to understand the complete pattern.",
+            parameters: {},
+            async execute(): Promise<ToolResult> {
+                const parts: string[] = []
+                for (let i = 0; i < puzzle.train.length; i++) {
+                    const ex = puzzle.train[i]
+                    parts.push(
+                        `── Example ${i + 1} ──\nInput (${gridDimensions(ex.input)}):\n${gridToText(ex.input)}\n\nOutput (${gridDimensions(ex.output)}):\n${gridToText(ex.output)}`
+                    )
+                }
+                return { success: true, output: parts.join("\n\n") }
             },
         },
         {
@@ -119,13 +186,70 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 const test = puzzle.test[0]
                 return {
                     success: true,
-                    output: `Test Input (${test.input.length}×${test.input[0].length}):\n${gridToText(test.input)}`,
+                    output: `Test Input (${gridDimensions(test.input)}):\n${gridToText(test.input)}`,
+                }
+            },
+        },
+        {
+            name: "run_transform",
+            description: `Write a JavaScript function body that transforms an input grid to an output grid. The function receives 'input' (number[][]) and must return a number[][]. It is tested against ALL ${puzzle.train.length} training examples automatically. This is the most powerful tool — use it to programmatically verify your hypothesis.`,
+            parameters: {
+                code: { type: "string", description: "JavaScript function body. Receives 'input' (number[][]). Must return number[][]. Example: 'return input.map(row => row.map(c => c === 0 ? 0 : 5 - c))'", required: true },
+            },
+            async execute(params): Promise<ToolResult> {
+                const code = params.code as string
+                try {
+                    // Create the transform function
+                    const fn = new Function("input", code) as (input: number[][]) => number[][]
+
+                    const results: string[] = []
+                    let allCorrect = true
+
+                    for (let i = 0; i < puzzle.train.length; i++) {
+                        const ex = puzzle.train[i]
+                        try {
+                            const predicted = fn(JSON.parse(JSON.stringify(ex.input))) // deep copy
+                            if (!Array.isArray(predicted) || !Array.isArray(predicted[0])) {
+                                results.push(`Example ${i + 1}: ✗ ERROR — function did not return a 2D array`)
+                                allCorrect = false
+                                continue
+                            }
+                            const correct = gridsEqual(predicted, ex.output)
+                            if (correct) {
+                                results.push(`Example ${i + 1}: ✓ CORRECT`)
+                            } else {
+                                allCorrect = false
+                                const sim = gridSimilarity(predicted, ex.output)
+                                results.push(`Example ${i + 1}: ✗ WRONG (${(sim * 100).toFixed(0)}% match)\n  Got:      ${gridToCompact(predicted)}\n  Expected: ${gridToCompact(ex.output)}`)
+                            }
+                        } catch (e: any) {
+                            allCorrect = false
+                            results.push(`Example ${i + 1}: ✗ RUNTIME ERROR — ${e.message}`)
+                        }
+                    }
+
+                    // If all correct, also run on test input and show prediction
+                    if (allCorrect) {
+                        try {
+                            const testPrediction = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
+                            results.push(`\n🎯 ALL TRAINING CORRECT! Test prediction:\n${gridToText(testPrediction)}\n\nUse submit_answer to submit this.`)
+                        } catch (e: any) {
+                            results.push(`\n⚠ All training correct but test input failed: ${e.message}`)
+                        }
+                    }
+
+                    return {
+                        success: true,
+                        output: `Transform results (${allCorrect ? 'ALL PASS ✓' : 'SOME FAIL'}):\n${results.join("\n")}`,
+                    }
+                } catch (e: any) {
+                    return { success: false, output: "", error: `Syntax error in transform code: ${e.message}` }
                 }
             },
         },
         {
             name: "verify_on_training",
-            description: "Test your proposed transformation rule against a training example. Submit a predicted output grid for a training example and check if it matches.",
+            description: "Test a predicted output grid against a specific training example.",
             parameters: {
                 index: { type: "number", description: "Training example index (0-based)", required: true },
                 grid: { type: "string", description: "Your predicted output grid — rows separated by newlines, values separated by spaces", required: true },
@@ -147,7 +271,7 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 const sim = gridSimilarity(predicted, expected)
                 return {
                     success: true,
-                    output: `✗ INCORRECT — ${(sim * 100).toFixed(0)}% cell match\n\nYour prediction (${predicted.length}×${predicted[0].length}):\n${gridToText(predicted)}\n\nExpected (${expected.length}×${expected[0].length}):\n${gridToText(expected)}`,
+                    output: `✗ INCORRECT — ${(sim * 100).toFixed(0)}% cell match\n\nYour prediction (${gridDimensions(predicted)}):\n${gridToText(predicted)}\n\nExpected (${gridDimensions(expected)}):\n${gridToText(expected)}`,
                 }
             },
         },
@@ -155,16 +279,30 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
             name: "submit_answer",
             description: "Submit your final answer for the test input. This is the grid you think is the correct transformation of the test input.",
             parameters: {
-                grid: { type: "string", description: "Your answer grid — rows separated by newlines, values separated by spaces", required: true },
+                grid: { type: "string", description: "Your answer grid — rows separated by newlines, values separated by spaces. Or use programmatic: set code=true and provide JS function body.", required: true },
+                code: { type: "boolean", description: "If true, 'grid' is treated as JS function body (same as run_transform) and applied to the test input." },
             },
             async execute(params): Promise<ToolResult> {
-                const predicted = parseGrid(params.grid as string)
+                let predicted: number[][] | null
+
+                if (params.code) {
+                    // Apply code to test input
+                    try {
+                        const fn = new Function("input", params.grid as string) as (input: number[][]) => number[][]
+                        predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
+                    } catch (e: any) {
+                        return { success: false, output: "", error: `Code execution failed: ${e.message}` }
+                    }
+                } else {
+                    predicted = parseGrid(params.grid as string)
+                }
+
                 if (!predicted) {
                     return { success: false, output: "", error: "Could not parse grid." }
                 }
                 return {
                     success: true,
-                    output: `Answer submitted (${predicted.length}×${predicted[0].length}):\n${gridToText(predicted)}`,
+                    output: `Answer submitted (${gridDimensions(predicted)}):\n${gridToText(predicted)}`,
                 }
             },
         },
@@ -184,7 +322,19 @@ export function createArcObjective(puzzle: ArcPuzzle): Objective {
             }
             const lastSubmission = submissions[submissions.length - 1]
             const gridText = lastSubmission.params.grid as string
-            const predicted = parseGrid(gridText)
+            let predicted: number[][] | null
+
+            if (lastSubmission.params.code) {
+                try {
+                    const fn = new Function("input", gridText) as (input: number[][]) => number[][]
+                    predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
+                } catch {
+                    return { met: false, reason: "Code execution failed during validation." }
+                }
+            } else {
+                predicted = parseGrid(gridText)
+            }
+
             if (!predicted) {
                 return { met: false, reason: "Could not parse submitted answer." }
             }
@@ -196,28 +346,35 @@ export function createArcObjective(puzzle: ArcPuzzle): Objective {
             const sim = gridSimilarity(predicted, expected)
             return {
                 met: false,
-                reason: `Answer incorrect — ${(sim * 100).toFixed(0)}% cell match. Try verifying your rule on training examples first, then adjust.`,
+                reason: `Answer incorrect — ${(sim * 100).toFixed(0)}% cell match. Try using run_transform to write a programmatic solution and verify against all training examples.`,
             }
         },
     }
 }
 
-/** System prompt optimized for ARC puzzle solving */
+/** System prompt optimized for ARC puzzle solving with code-based approach */
 export const ARC_SYSTEM_PROMPT = `You are solving an ARC-AGI abstract reasoning puzzle.
+You must discover the transformation rule from training examples and apply it to the test input.
 
-CRITICAL RULES:
-- EVERY response MUST include tool calls in a JSON code block. NEVER respond with only analysis text.
-- You have limited turns. Do NOT waste turns on thinking without tool calls.
-- Call MULTIPLE tools per turn: batch all view_training calls together.
+TOOLS AVAILABLE:
+- view_all_training: See ALL training input→output pairs at once
+- view_training: See a specific training example 
+- view_test_input: See the test input you need to transform
+- run_transform: Write JS code that transforms input→output, automatically verified against ALL training examples
+- verify_on_training: Manually check a grid against a training example
+- submit_answer: Submit your final answer (grid or code)
 
-STRATEGY (follow this EXACTLY):
-Turn 1: View ALL training examples at once (call view_training for index 0, 1, 2, ... in one JSON array)
-Turn 2: Identify the pattern, verify on one training example with verify_on_training
-Turn 3: If verified ✓ → call view_test_input. If ✗ → revise and verify again.
-Turn 4: Apply the rule to the test input and call submit_answer immediately.
+CRITICAL STRATEGY (follow EXACTLY):
+Turn 1: Call view_all_training to see every example at once.
+Turn 2: Analyze patterns. Write a JS transform function using run_transform to verify your hypothesis against ALL training examples at once. The function receives 'input' (number[][]) and must return number[][].
+Turn 3: If run_transform shows ALL PASS → call submit_answer with code=true using the same function. If some fail → refine your code and try again.
 
-NEVER spend a turn only explaining your thinking. ALWAYS include tool calls.
-If you know the rule, SUBMIT IMMEDIATELY. Do not over-analyze.
+KEY PRINCIPLES:
+- ALWAYS use run_transform to verify your rule programmatically. Do NOT guess.
+- Think about: color mapping, rotation, reflection, scaling, cropping, pattern completion, object detection, flood fill, symmetry.
+- Common ARC patterns: input/output size changes, color substitution, object extraction, border/padding, tiling/repetition, gravity/stacking.
+- The function body receives 'input' as number[][] and must return number[][].
+- EVERY response MUST include tool calls. NEVER respond with only text.
+- You have limited turns. Be efficient.
 
-Grid format: space-separated integers, one row per line.
-0 = empty/black, 1-9 = colors.`
+Grid format: space-separated integers, one row per line. 0=black, 1-9=colors.`
