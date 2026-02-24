@@ -1,5 +1,9 @@
 // smart-agent/src/session.ts
 // Multi-turn chat session — planner adjusts objectives per message, executor runs them
+// Features:
+//   - Fast conversational routing (skips planner for obvious questions/comments)
+//   - ARC-AGI puzzle integration (auto-detects puzzle requests)
+//   - Confirmation gate for destructive operations
 import { measure, measureSync } from "measure-fn"
 import type {
     AgentConfig,
@@ -10,6 +14,7 @@ import type {
 import { Agent } from "./agent"
 import { callText } from "jsx-ai"
 import { hydrateObjective, PLANNER_SYSTEM_PROMPT } from "./objectives"
+import { extractPuzzleId, fetchPuzzle, createArcTools, createArcObjective, ARC_SYSTEM_PROMPT } from "./arc"
 
 /** Session event — extends AgentEvent with session-level events */
 export type SessionEvent =
@@ -19,21 +24,67 @@ export type SessionEvent =
     | { type: "awaiting_confirmation"; objectives: PlannedObjective[] }
 
 /**
+ * Classify a user message for routing purposes.
+ * Returns:
+ *   - 'conversational'  → skip the planner entirely, just respond
+ *   - 'arc'             → ARC puzzle mode, inject puzzle tools
+ *   - 'task'            → full planner pipeline
+ */
+function classifyMessage(message: string, hasHistory: boolean): 'conversational' | 'arc' | 'task' {
+    const lower = message.toLowerCase().trim()
+
+    // ── ARC puzzle detection ──
+    if (/\b(arc|arc-agi|abstract reasoning)\b/i.test(lower) &&
+        /\b(solve|try|attempt|run|challenge|puzzle)\b/i.test(lower)) {
+        return 'arc'
+    }
+    // Bare puzzle ID (8 hex chars) with solve-like context
+    if (/\b[0-9a-f]{8}\b/i.test(lower) && /\b(solve|puzzle|arc)\b/i.test(lower)) {
+        return 'arc'
+    }
+
+    // ── Task detection — explicit action verbs targeting the system ──
+    const taskPatterns = [
+        /\b(create|make|write|build|generate|add|delete|remove|install|update|modify|edit|fix|deploy|setup|configure)\b.*\b(file|folder|directory|script|code|project|app|server|database|component|function|test|page)\b/i,
+        /\b(run|execute|start|stop|restart|kill)\b.*\b(command|script|server|process|test)\b/i,
+        /\b(save|store|persist|schedule|send)\b/i,
+        /\bcreate\b.*\.(txt|ts|js|json|md|yaml|yml|html|css)/i,
+    ]
+    if (taskPatterns.some(p => p.test(lower))) return 'task'
+
+    // ── Conversational patterns — skip planner for these ──
+    const conversationalPatterns = [
+        /^(what|who|why|how|when|where|which|is|are|was|were|do|does|did|can|could|would|should|shall)\b/i,
+        /^(tell|explain|describe|summarize|compare|define|clarify|elaborate)\b/i,
+        /^(hey|hi|hello|thanks|thank|ok|okay|sure|yes|no|yeah|nah|cool|nice|great|awesome|lol|haha|wow|interesting)\b/i,
+        /\?$/,  // ends with question mark
+    ]
+    if (conversationalPatterns.some(p => p.test(lower))) return 'conversational'
+
+    // ── Short follow-ups are usually conversational ──
+    if (hasHistory && lower.split(/\s+/).length <= 8) return 'conversational'
+
+    // Default: use the planner
+    return 'task'
+}
+
+/**
  * A multi-turn chat session. Each user message goes through a pipeline:
  * 
- * 1. **Planner** receives the full conversation so far and generates/adjusts objectives
- * 2. **Executor** runs Agent.run() with the current objectives
- * 3. Results are accumulated in the session history
+ * 1. **Classifier** checks if the message is conversational, ARC, or a task
+ * 2. **Planner** (skipped for conversational) generates/adjusts objectives
+ * 3. **Executor** runs Agent.run() with the current objectives
+ * 4. Results are accumulated in the session history
  * 
  * ```ts
- * const session = new Session({ model: "gemini-3-flash-preview" })
+ * const session = new Session({ model: "gemini-2.5-flash" })
  * 
  * for await (const event of session.send("create a hello world project")) {
  *   console.log(event.type)
  * }
  * 
- * // Follow-up — planner adjusts objectives based on previous context
- * for await (const event of session.send("now add unit tests")) {
+ * // Follow-up — fast-path, no planner needed
+ * for await (const event of session.send("what did you just create?")) {
  *   console.log(event.type)
  * }
  * ```
@@ -43,7 +94,8 @@ export class Session {
     private config: AgentConfig
     private history: Message[] = []
     private plannerHistory: Array<{ role: string; content: string }> = []
-    private currentObjectives: PlannedObjective[] = []
+    private completedObjectives: PlannedObjective[] = []
+    private pendingObjectives: PlannedObjective[] = []
     private turnCount = 0
     private abortController: AbortController | null = null
     readonly requireConfirmation: boolean
@@ -63,8 +115,7 @@ export class Session {
     }
 
     /**
-     * Send a message to the session. The planner will generate or adjust
-     * objectives, then the executor will run.
+     * Send a message to the session. Routes through classifier → planner → executor.
      */
     async *send(message: string): AsyncGenerator<SessionEvent> {
         this.turnCount++
@@ -73,13 +124,156 @@ export class Session {
         // Track in user message history
         this.history.push({ role: "user", content: message })
 
-        // ── Stage 1: Planner — generate or adjust objectives ──
+        // ── Route based on message classification ──
+        const msgType = classifyMessage(message, this.history.length > 1)
+
+        if (msgType === 'conversational') {
+            yield* this.handleConversational(message, turn)
+        } else if (msgType === 'arc') {
+            yield* this.handleArc(message, turn)
+        } else {
+            yield* this.handleTask(message, turn)
+        }
+    }
+
+    // ══════════════════════════════════════
+    // CONVERSATIONAL — fast path, no planner
+    // ══════════════════════════════════════
+
+    private async *handleConversational(message: string, turn: number): AsyncGenerator<SessionEvent> {
+        const respondObjective: PlannedObjective = {
+            name: `respond_${turn}`,
+            description: `Respond to: "${message}"`,
+            type: "respond",
+            params: { topic: message }
+        }
+
+        this.pendingObjectives = [respondObjective]
+
+        // Emit lightweight planning event — UI will show minimal ceremony
+        yield { type: "planning", objectives: [{ ...respondObjective, _quick: true } as any] }
+
+        // Run executor directly (no confirmation needed for conversational)
+        const cwd = this.config.cwd ?? process.cwd()
+        const objectives = [hydrateObjective(respondObjective, cwd)]
+
+        const agent = new Agent({
+            ...this.config,
+            objectives,
+        })
+
+        const executorInput: Message[] = this.history.map(m => ({
+            role: m.role,
+            content: m.content,
+        }))
+
+        this.abortController = new AbortController()
+
+        for await (const event of agent.run(executorInput, this.abortController.signal)) {
+            yield event
+
+            if (event.type === "complete") {
+                this.completedObjectives.push(respondObjective)
+                this.pendingObjectives = []
+                this.history.push({
+                    role: "assistant",
+                    content: `Responded to: "${message}"`,
+                })
+            }
+        }
+    }
+
+    // ══════════════════════════════════════
+    // ARC — puzzle solving mode
+    // ══════════════════════════════════════
+
+    private async *handleArc(message: string, turn: number): AsyncGenerator<SessionEvent> {
         yield { type: "replanning", message }
 
-        // Build planner context with previous objectives if any
-        const plannerUserMsg = this.currentObjectives.length > 0
-            ? `Previous objectives:\n${JSON.stringify(this.currentObjectives, null, 2)}\n\nNew user message: "${message}"\n\nGenerate updated objectives. Keep objectives that are still relevant, remove completed ones, and add new ones as needed.`
-            : message
+        // Extract puzzle ID from message
+        const puzzleId = extractPuzzleId(message)
+        if (!puzzleId) {
+            yield { type: "error", iteration: -1, error: "Could not determine which ARC puzzle to solve. Provide a puzzle ID (e.g. 0d3d703e)." }
+            return
+        }
+
+        // Fetch the puzzle
+        let puzzle
+        try {
+            puzzle = await measure(`Fetch ARC puzzle ${puzzleId}`, () => fetchPuzzle(puzzleId))
+        } catch (e: any) {
+            yield { type: "error", iteration: -1, error: `Failed to fetch puzzle ${puzzleId}: ${e.message}` }
+            return
+        }
+        if (!puzzle) {
+            yield { type: "error", iteration: -1, error: `Puzzle ${puzzleId} not found` }
+            return
+        }
+
+        // Create ARC tools and objective
+        const arcTools = createArcTools(puzzle)
+        const arcObjective = createArcObjective(puzzle)
+
+        const planned: PlannedObjective = {
+            name: "solve_puzzle",
+            description: arcObjective.description,
+            type: "custom_check",
+            params: { puzzle_id: puzzleId }
+        }
+        this.pendingObjectives = [planned]
+
+        yield { type: "planning", objectives: [planned] }
+
+        // No confirmation for ARC — it's read-only (no side effects)
+        const agent = new Agent({
+            ...this.config,
+            objectives: [arcObjective],
+            tools: arcTools,
+            maxIterations: 10,
+            temperature: 0.2,
+            systemPrompt: ARC_SYSTEM_PROMPT,
+        })
+
+        this.abortController = new AbortController()
+
+        for await (const event of agent.run(`Solve ARC puzzle ${puzzleId}`, this.abortController.signal)) {
+            yield event
+
+            if (event.type === "complete") {
+                this.completedObjectives.push(planned)
+                this.pendingObjectives = []
+                this.history.push({
+                    role: "assistant",
+                    content: `Solved ARC puzzle ${puzzleId}`,
+                })
+            }
+        }
+    }
+
+    // ══════════════════════════════════════
+    // TASK — full planner pipeline
+    // ══════════════════════════════════════
+
+    private async *handleTask(message: string, turn: number): AsyncGenerator<SessionEvent> {
+        // ── Stage 1: Planner — generate NEW objectives only ──
+        yield { type: "replanning", message }
+
+        // Tell the planner what's already done (immutable) and what's still pending
+        let plannerUserMsg: string
+        if (this.completedObjectives.length > 0 || this.pendingObjectives.length > 0) {
+            const parts: string[] = []
+            if (this.completedObjectives.length > 0) {
+                parts.push(`COMPLETED (do NOT re-create or modify these):\n${JSON.stringify(this.completedObjectives, null, 2)}`)
+            }
+            if (this.pendingObjectives.length > 0) {
+                parts.push(`STILL PENDING:\n${JSON.stringify(this.pendingObjectives, null, 2)}`)
+            }
+            parts.push(`New user message: "${message}"`)
+            parts.push(`Generate ONLY new objectives for this message. Do NOT include any completed objectives.`)
+            plannerUserMsg = parts.join('\n\n')
+        } else {
+            plannerUserMsg = message
+        }
 
         this.plannerHistory.push({ role: "user", content: plannerUserMsg })
 
@@ -91,7 +285,7 @@ export class Session {
         )
 
         // Parse objectives
-        const planned = measureSync(`Parse objectives (turn ${turn})`, () => {
+        const newObjectives = measureSync(`Parse objectives (turn ${turn})`, () => {
             let json = (plannerResponse || "").trim()
             if (json.startsWith("```")) {
                 json = json.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
@@ -103,7 +297,7 @@ export class Session {
             return parsed
         })
 
-        if (!planned) {
+        if (!newObjectives) {
             yield {
                 type: "error",
                 iteration: -1,
@@ -114,14 +308,24 @@ export class Session {
 
         // Store planner response in history for future refinement
         this.plannerHistory.push({ role: "assistant", content: plannerResponse || "" })
-        this.currentObjectives = planned
 
-        // Emit planning event
-        yield { type: "planning", objectives: planned }
+        // The planned list for THIS turn = only the new objectives
+        // (completed objectives stay in completedObjectives and are not re-run)
+        this.pendingObjectives = newObjectives
+
+        // Emit planning event — show ALL objectives (completed + new) for context
+        const allObjectives = [
+            ...this.completedObjectives.map(o => ({ ...o, completed: true })),
+            ...newObjectives,
+        ]
+        yield { type: "planning", objectives: allObjectives }
 
         // ── Confirmation gate — pause and wait for user confirmation ──
-        if (this.requireConfirmation) {
-            yield { type: "awaiting_confirmation", objectives: planned }
+        // Auto-confirm if all NEW objectives are pure "respond" type (no side effects)
+        const isConversational = newObjectives.every(p => p.type === "respond")
+
+        if (this.requireConfirmation && !isConversational) {
+            yield { type: "awaiting_confirmation", objectives: allObjectives }
 
             const confirmed = await new Promise<boolean>(resolve => {
                 this.confirmationResolve = resolve
@@ -134,10 +338,10 @@ export class Session {
             }
         }
 
-        // ── Stage 2: Executor — run with generated objectives ──
+        // ── Stage 2: Executor — run with ONLY new objectives ──
         const cwd = this.config.cwd ?? process.cwd()
         const objectives = measureSync(`Hydrate objectives (turn ${turn})`, () =>
-            planned.map(p => hydrateObjective(p, cwd))
+            newObjectives.map(p => hydrateObjective(p, cwd))
         )!
 
         const agent = new Agent({
@@ -157,15 +361,21 @@ export class Session {
         for await (const event of agent.run(executorInput, this.abortController.signal)) {
             yield event
 
-            // Track completion in history
+            // Track completion — move new objectives to completed
             if (event.type === "complete") {
+                this.completedObjectives.push(...newObjectives)
+                this.pendingObjectives = []
                 this.history.push({
                     role: "assistant",
-                    content: `Completed objectives: ${planned.map(p => p.name).join(", ")}`,
+                    content: `Completed objectives: ${newObjectives.map(p => p.name).join(", ")}`,
                 })
             }
         }
     }
+
+    // ══════════════════════════════════════
+    // PUBLIC API
+    // ══════════════════════════════════════
 
     /** Confirm objectives and proceed with execution */
     confirmObjectives() {
@@ -203,9 +413,9 @@ export class Session {
         return this.history
     }
 
-    /** Get current planned objectives */
+    /** Get current planned objectives (completed + pending) */
     getObjectives(): readonly PlannedObjective[] {
-        return this.currentObjectives
+        return [...this.completedObjectives, ...this.pendingObjectives]
     }
 }
 
@@ -217,10 +427,11 @@ function randomId(): string {
 const REFINEMENT_ADDENDUM = `
 
 REFINEMENT MODE:
-When you receive "Previous objectives" + a new message, you must:
-1. Keep objectives that are still relevant and not yet met
-2. Remove objectives that have been completed or are no longer needed
-3. Add new objectives based on the new message
-4. Adjust existing objectives if the user wants changes
+When you receive context with COMPLETED and/or PENDING objectives along with a new user message:
+1. NEVER re-create or modify completed objectives — they are done and immutable
+2. Generate ONLY new objectives that address the NEW user message
+3. If the user is asking a follow-up question or conversational request, use type "respond"
+4. Only create tool-based objectives if the user explicitly asks for new actions
+5. Do NOT repeat objectives that already exist in COMPLETED or PENDING
 
-Always respond with the COMPLETE updated list of objectives (not just changes).`
+Respond with ONLY the new objectives as a JSON array. Do NOT include completed objectives.`

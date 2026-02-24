@@ -256,10 +256,15 @@ export class Agent {
                     // Streaming path — extract tool calls from text
                     invocations = this.parseToolCallsFromText(accumulated)
                     // Strip tool call JSON from the thinking text for display
-                    const thinkingText = accumulated.replace(/```json[\s\S]*?```/g, "").trim()
-                    if (thinkingText) {
-                        accumulated = thinkingText
-                    }
+                    const thinkingText = accumulated
+                        // Remove ```json...``` fenced blocks
+                        .replace(/```json[\s\S]*?```/g, "")
+                        // Remove bare inline tool call JSON arrays/objects
+                        .replace(/\[?\s*\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"params"\s*:[\s\S]*?\}\s*\]?/g, "")
+                        .replace(/\n{3,}/g, "\n\n")
+                        .trim()
+                    // Always use the stripped text — if empty, the LLM only produced tool call JSON
+                    accumulated = thinkingText
                 }
 
                 // Emit final thinking message (for non-streaming consumers)
@@ -329,7 +334,7 @@ export class Agent {
 
                     state.messages.push({
                         role: "user",
-                        content: `The following objectives are NOT met yet. Use tools to make progress:\n${feedback}`,
+                        content: `WARNING: Your last response contained NO tool calls — it was wasted. You MUST include tool calls in a \`\`\`json code block. Objectives NOT met:\n${feedback}\n\nRespond with TOOL CALLS NOW.`,
                     })
                 }
 

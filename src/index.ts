@@ -3,6 +3,8 @@ export { Agent } from "./agent"
 export { Session } from "./session"
 export type { SessionEvent } from "./session"
 export { hydrateObjective } from "./objectives"
+export { fetchPuzzle, createArcTools, createArcObjective, extractPuzzleId } from "./arc"
+export type { ArcPuzzle } from "./arc"
 export { callText, streamLLM } from "jsx-ai"
 export type {
     AgentConfig,
