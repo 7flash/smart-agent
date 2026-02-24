@@ -28,6 +28,7 @@ export class Agent {
     private tools: Map<string, Tool>
     private skillsPrompt: string = ""
     private initialized = false
+    private pendingInjections: string[] = []
 
     constructor(config: AgentConfig) {
         this.objectives = config.objectives || []
@@ -64,6 +65,11 @@ export class Agent {
                 this.skillsPrompt = formatSkillsForPrompt(skills)
             })
         }
+    }
+
+    /** Inject a message into the agent's message stream (will be delivered before next LLM call) */
+    injectMessage(content: string): void {
+        this.pendingInjections.push(content)
     }
 
     /**
@@ -197,6 +203,12 @@ export class Agent {
 
             state.iteration = i
             yield { type: "iteration_start", iteration: i, elapsed: Date.now() - startTime }
+
+            // Flush any injected messages
+            while (this.pendingInjections.length > 0) {
+                const injected = this.pendingInjections.shift()!
+                state.messages.push({ role: "user", content: injected })
+            }
 
             try {
                 // ── Stream LLM response — yield thinking_delta events in real-time ──

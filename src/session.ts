@@ -14,7 +14,7 @@ import type {
 import { Agent } from "./agent"
 import { callText } from "jsx-ai"
 import { hydrateObjective, PLANNER_SYSTEM_PROMPT } from "./objectives"
-import { extractPuzzleId, fetchPuzzle, createArcTools, createArcObjective, ARC_SYSTEM_PROMPT } from "./arc"
+import { extractPuzzleId, fetchPuzzle, createArcTools, createArcObjective, ARC_SYSTEM_PROMPT, ARC_URGENCY_MESSAGE } from "./arc"
 
 /** Session event — extends AgentEvent with session-level events */
 export type SessionEvent =
@@ -236,8 +236,38 @@ export class Session {
 
         this.abortController = new AbortController()
 
+        let hasSubmitted = false
+        let bestTransformCode: string | null = null
+        let lastRunTransformCode: string | null = null
+
         for await (const event of agent.run(`Solve ARC puzzle ${puzzleId}`, this.abortController.signal)) {
             yield event
+
+            // Track run_transform code from tool_start (which has params)
+            if (event.type === "tool_start") {
+                const ev = event as any
+                if (ev.tool === "run_transform" && ev.params?.code) {
+                    lastRunTransformCode = ev.params.code as string
+                }
+            }
+
+            // Track submissions and successful transforms from tool_result
+            if (event.type === "tool_result") {
+                const ev = event as any
+                if (ev.tool === "submit_answer" && ev.result?.success) hasSubmitted = true
+                if (ev.tool === "run_transform" && ev.result?.success && lastRunTransformCode) {
+                    bestTransformCode = lastRunTransformCode
+                }
+            }
+
+            // Inject urgency on turn 7+ if not yet submitted
+            if (event.type === "iteration_start") {
+                const iter = (event as any).iteration ?? 0
+                if (iter >= 7 && !hasSubmitted) {
+                    // The agent will see this in its next tool result feedback
+                    agent.injectMessage(ARC_URGENCY_MESSAGE)
+                }
+            }
 
             if (event.type === "complete") {
                 this.completedObjectives.push(planned)
@@ -246,6 +276,16 @@ export class Session {
                     role: "assistant",
                     content: `Solved ARC puzzle ${puzzleId}`,
                 })
+            }
+
+            // On max_iterations, force-submit if agent never did
+            if (event.type === "max_iterations" && !hasSubmitted && bestTransformCode) {
+                const submitTool = arcTools.find(t => t.name === "submit_answer")
+                if (submitTool) {
+                    const result = await submitTool.execute({ grid: bestTransformCode, code: true })
+                    yield { type: "tool_start", iteration: -1, tool: "submit_answer", params: { grid: "(forced)", code: true } }
+                    yield { type: "tool_result", iteration: -1, tool: "submit_answer", result }
+                }
             }
         }
     }

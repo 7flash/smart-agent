@@ -367,7 +367,7 @@ TOOLS AVAILABLE:
 CRITICAL STRATEGY (follow EXACTLY):
 Turn 1: Call view_all_training to see every example at once.
 Turn 2: Analyze patterns. Write a JS transform function using run_transform to verify your hypothesis against ALL training examples at once. The function receives 'input' (number[][]) and must return number[][].
-Turn 3: If run_transform shows ALL PASS → call submit_answer with code=true using the same function. If some fail → refine your code and try again.
+Turn 3+: If run_transform shows ALL PASS → call submit_answer with code=true using the same function. If some fail → refine your code and try again.
 
 KEY PRINCIPLES:
 - ALWAYS use run_transform to verify your rule programmatically. Do NOT guess.
@@ -375,6 +375,11 @@ KEY PRINCIPLES:
 - Common ARC patterns: input/output size changes, color substitution, object extraction, border/padding, tiling/repetition, gravity/stacking.
 - The function body receives 'input' as number[][] and must return number[][].
 - EVERY response MUST include tool calls. NEVER respond with only text.
-- You have limited turns. Be efficient.
+- You have 10 turns maximum. Be efficient. Do NOT waste turns analyzing without tool calls.
+- ⚠️ DEADLINE RULE: If you reach turn 7 without solving, you MUST submit your BEST attempt immediately using submit_answer. Even a partial solution is better than no submission.
+- If your run_transform passes most but not all examples, SUBMIT IT ANYWAY rather than running out of turns.
 
 Grid format: space-separated integers, one row per line. 0=black, 1-9=colors.`
+
+/** Urgency message injected on penultimate turns */
+export const ARC_URGENCY_MESSAGE = `⚠️ DEADLINE: You are running out of turns. You MUST call submit_answer NOW with your best attempt. Even if your run_transform code doesn't pass all examples, submit it with code=true. A partial answer is infinitely better than no answer. DO NOT analyze further — SUBMIT NOW.`
