@@ -220,7 +220,19 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 code: { type: "string", description: "JavaScript function body. Receives 'input' (number[][]). Must return number[][]. Example: 'return input.map(row => row.map(c => c === 0 ? 0 : 5 - c))'", required: true },
             },
             async execute(params): Promise<ToolResult> {
-                const code = params.code as string
+                let code = (params.code as string).trim()
+
+                // Strip markdown code fences
+                code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/i, '').replace(/\n?```$/g, '').trim()
+
+                // Strip function wrapper if agent wrapped it: "function transform(input) { ... }"
+                const fnWrap = code.match(/^(?:function\s+\w*\s*\(input\)\s*\{)([\s\S]*)\}$/m)
+                if (fnWrap) code = fnWrap[1].trim()
+
+                // Strip arrow wrapper: "(input) => { ... }" or "input => { ... }"
+                const arrowWrap = code.match(/^(?:\(?\s*input\s*\)?\s*=>\s*\{)([\s\S]*)\}$/m)
+                if (arrowWrap) code = arrowWrap[1].trim()
+
                 try {
                     // Create the transform function
                     const fn = new Function("input", code) as (input: number[][]) => number[][]
@@ -233,7 +245,8 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                         try {
                             const predicted = fn(JSON.parse(JSON.stringify(ex.input))) // deep copy
                             if (!Array.isArray(predicted) || !Array.isArray(predicted[0])) {
-                                results.push(`Example ${i + 1}: ✗ ERROR — function did not return a 2D array`)
+                                const gotType = predicted === null ? 'null' : predicted === undefined ? 'undefined' : typeof predicted === 'object' && 'then' in (predicted as any) ? 'Promise (use sync code, not async)' : Array.isArray(predicted) ? `flat array [${String(predicted).slice(0, 50)}]` : typeof predicted
+                                results.push(`Example ${i + 1}: ✗ ERROR — function did not return a 2D array (got ${gotType}). Your code must use 'return' to return a number[][].`)
                                 allCorrect = false
                                 continue
                             }
@@ -309,9 +322,16 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 let predicted: number[][] | null
 
                 if (params.code) {
-                    // Apply code to test input
+                    // Apply code to test input — clean up like run_transform
+                    let code = (params.grid as string).trim()
+                    code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/i, '').replace(/\n?```$/g, '').trim()
+                    const fnWrap = code.match(/^(?:function\s+\w*\s*\(input\)\s*\{)([\s\S]*)\}$/m)
+                    if (fnWrap) code = fnWrap[1].trim()
+                    const arrowWrap = code.match(/^(?:\(?\s*input\s*\)?\s*=>\s*\{)([\s\S]*)\}$/m)
+                    if (arrowWrap) code = arrowWrap[1].trim()
+
                     try {
-                        const fn = new Function("input", params.grid as string) as (input: number[][]) => number[][]
+                        const fn = new Function("input", code) as (input: number[][]) => number[][]
                         predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
                     } catch (e: any) {
                         return { success: false, output: "", error: `Code execution failed: ${e.message}` }
