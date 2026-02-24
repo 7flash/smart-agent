@@ -9,7 +9,7 @@
 //   bun run src/arc-batch.ts --resume           # Resume from last run
 //   bun run src/arc-batch.ts --concurrency 3    # Run 3 puzzles in parallel
 
-import { measure, measureSync } from "measure-fn"
+import { measure, measureSync, configure } from "measure-fn"
 import { Session } from "./session"
 import { fetchPuzzle, fetchPuzzleIndex, gridsEqual, parseGrid } from "./arc"
 import type { ArcPuzzle } from "./arc"
@@ -18,7 +18,9 @@ import { parseArgs } from "util"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 
-// ── Configuration ──
+// Full logging — 0 = unlimited output
+configure({ maxResultLength: 0, timestamps: true })
+
 
 const { values: args } = parseArgs({
     options: {

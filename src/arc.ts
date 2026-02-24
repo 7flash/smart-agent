@@ -51,10 +51,33 @@ export function gridSimilarity(predicted: number[][], expected: number[][]): num
 }
 
 export function parseGrid(text: string): number[][] | null {
-    // Support both space-separated and compact (no spaces) formats
-    const lines = text.trim().split("\n")
+    // Strip markdown code fences
+    let cleaned = text.trim()
+        .replace(/^```\w*\n?/, '')
+        .replace(/\n?```$/, '')
+        .trim()
+
+    // Handle JSON array format: [[1,2],[3,4]]
+    if (cleaned.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(cleaned)
+            if (Array.isArray(parsed) && Array.isArray(parsed[0])) {
+                return parsed.map((row: any) => row.map(Number))
+            }
+        } catch { /* not JSON, continue */ }
+    }
+
+    // Remove brackets, commas — normalize to space-separated rows
+    cleaned = cleaned
+        .replace(/\[/g, '')
+        .replace(/\]/g, '')
+        .replace(/,/g, ' ')
+
+    const lines = cleaned.split("\n")
         .map(l => l.trim())
-        .filter(l => l.length > 0 && /^[\d\s|]+$/.test(l))
+        .filter(l => l.length > 0 && /[\d]/.test(l))
+        .map(l => l.replace(/[^0-9\s|]/g, '').trim()) // strip non-digit/space/pipe chars
+        .filter(l => l.length > 0)
 
     // Handle compact format "012|345|678"
     if (lines.length === 1 && lines[0].includes("|")) {
@@ -64,7 +87,7 @@ export function parseGrid(text: string): number[][] | null {
     if (lines.length === 0) return null
     return lines.map(line => {
         // If digits have spaces between them, split on spaces
-        if (line.includes(" ")) return line.split(/\s+/).map(Number)
+        if (line.includes(" ")) return line.split(/\s+/).filter(s => s.length > 0).map(Number)
         // Otherwise each char is a digit
         return line.split("").map(Number)
     })
