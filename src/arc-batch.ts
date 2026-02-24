@@ -117,16 +117,22 @@ async function solvePuzzle(puzzleId: string): Promise<PuzzleResult> {
         for await (const event of session.send(`solve ARC puzzle ${puzzleId}`)) {
             const ev = event as any
 
+            // Log thinking (the agent's actual reasoning text)
+            if (ev.type === "thinking" && ev.message) {
+                console.log(`  💭 [Turn ${result.turns}] ${ev.message.slice(0, 500)}${ev.message.length > 500 ? '...' : ''}`)
+            }
+
+            // Log iteration start
+            if (ev.type === "iteration_start") {
+                result.turns = (ev.iteration ?? 0) + 1
+                console.log(`  🔄 Turn ${result.turns}/${MAX_TURNS}`)
+            }
+
             // Track tool results — look for submit_answer
             if (ev.type === "tool_result" && ev.tool === "submit_answer" && ev.result?.success) {
                 const gridText = (ev.result.output || "") as string
                 const parsed = parseGrid(gridText.replace(/^Answer submitted.*?:\n/, ""))
                 if (parsed) lastSubmittedGrid = parsed
-            }
-
-            // Track iteration count
-            if (ev.type === "iteration_start") {
-                result.turns = (ev.iteration ?? 0) + 1
             }
 
             // Check if objective is met
