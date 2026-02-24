@@ -491,3 +491,52 @@ describe("Session", () => {
         expect(session.isAwaitingConfirmation).toBe(false)
     })
 })
+
+// ── Tool Call Text Parsing Tests ──
+
+describe("Tool call text parsing", () => {
+    // Create an Agent instance to test parseToolCallsFromText (via its private method)
+    // We access it through a prototype hack since it's private
+    const agent = new Agent({
+        model: "test",
+        objectives: [{ name: "x", description: "x", validate: () => ({ met: true, reason: "" }) }],
+    })
+    const parse = (agent as any).parseToolCallsFromText.bind(agent)
+
+    test("parses JSON code fence — single tool", () => {
+        const text = `I'll read the file.\n\n\`\`\`json\n[{"tool": "read_file", "params": {"path": "hello.txt"}}]\n\`\`\``
+        const result = parse(text)
+        expect(result).toHaveLength(1)
+        expect(result[0].tool).toBe("read_file")
+        expect(result[0].params.path).toBe("hello.txt")
+    })
+
+    test("parses JSON code fence — multiple tools", () => {
+        const text = `Let me check.\n\n\`\`\`json\n[\n  {"tool": "read_file", "params": {"path": "a.ts"}},\n  {"tool": "exec", "params": {"command": "echo hi"}}\n]\n\`\`\``
+        const result = parse(text)
+        expect(result).toHaveLength(2)
+        expect(result[0].tool).toBe("read_file")
+        expect(result[1].tool).toBe("exec")
+        expect(result[1].params.command).toBe("echo hi")
+    })
+
+    test("parses inline JSON objects", () => {
+        const text = `I'll run: {"tool": "exec", "params": {"command": "bun test"}}`
+        const result = parse(text)
+        expect(result).toHaveLength(1)
+        expect(result[0].tool).toBe("exec")
+        expect(result[0].params.command).toBe("bun test")
+    })
+
+    test("returns empty array for plain text", () => {
+        const text = "This is just a regular response with no tool calls."
+        const result = parse(text)
+        expect(result).toHaveLength(0)
+    })
+
+    test("handles malformed JSON gracefully", () => {
+        const text = `\`\`\`json\n{bad json here}\n\`\`\``
+        const result = parse(text)
+        expect(result).toHaveLength(0)
+    })
+})

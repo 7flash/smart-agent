@@ -8,7 +8,7 @@ import type {
     PlannedObjective,
 } from "./types"
 import { Agent } from "./agent"
-import { callLLM } from "./llm"
+import { callText } from "jsx-ai"
 import { hydrateObjective, PLANNER_SYSTEM_PROMPT } from "./objectives"
 
 /** Session event — extends AgentEvent with session-level events */
@@ -84,7 +84,7 @@ export class Session {
         this.plannerHistory.push({ role: "user", content: plannerUserMsg })
 
         const plannerResponse = await measure(`Planner (turn ${turn})`, () =>
-            callLLM(this.config.model, this.plannerHistory, {
+            callText(this.config.model, this.plannerHistory, {
                 temperature: this.config.temperature ?? 0.3,
                 maxTokens: this.config.maxTokens ?? 4000,
             })

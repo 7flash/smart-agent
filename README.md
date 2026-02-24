@@ -272,6 +272,8 @@ When using `Agent.plan()`, the planner generates objectives using these template
 
 ## LLM Support
 
+All LLM communication is handled by [jsx-ai](https://github.com/7flash/jsx-ai), which provides provider routing, streaming, and retry logic.
+
 | Provider | Models | Env Var |
 |----------|--------|---------|
 | Google | `gemini-*` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |

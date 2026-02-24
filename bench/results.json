@@ -1,0 +1,467 @@
+{
+  "model": "gemini-2.5-flash",
+  "iterations": 3,
+  "timestamp": "2026-02-23T14:20:10.421Z",
+  "results": [
+    {
+      "approach": "xml",
+      "testCase": "simple_write",
+      "iteration": 0,
+      "latencyMs": 1611.4538,
+      "inputTokens": 424,
+      "outputTokens": 132,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "simple_write",
+      "iteration": 0,
+      "latencyMs": 1302.0285000000003,
+      "inputTokens": 377,
+      "outputTokens": 23,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "simple_write",
+      "iteration": 1,
+      "latencyMs": 1544.3912999999998,
+      "inputTokens": 424,
+      "outputTokens": 132,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "simple_write",
+      "iteration": 1,
+      "latencyMs": 974.1931000000004,
+      "inputTokens": 377,
+      "outputTokens": 23,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "simple_write",
+      "iteration": 2,
+      "latencyMs": 1585.6981999999998,
+      "inputTokens": 424,
+      "outputTokens": 133,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "simple_write",
+      "iteration": 2,
+      "latencyMs": 1089.9207999999999,
+      "inputTokens": 377,
+      "outputTokens": 23,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "write_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "read_then_edit",
+      "iteration": 0,
+      "latencyMs": 1755.4388,
+      "inputTokens": 428,
+      "outputTokens": 139,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "read_then_edit",
+      "iteration": 0,
+      "latencyMs": 1326.7979000000014,
+      "inputTokens": 381,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "read_then_edit",
+      "iteration": 1,
+      "latencyMs": 1733.6578000000009,
+      "inputTokens": 428,
+      "outputTokens": 142,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "read_then_edit",
+      "iteration": 1,
+      "latencyMs": 1546.7619000000013,
+      "inputTokens": 381,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "read_then_edit",
+      "iteration": 2,
+      "latencyMs": 1772.2996999999996,
+      "inputTokens": 428,
+      "outputTokens": 142,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "read_then_edit",
+      "iteration": 2,
+      "latencyMs": 1952.1268000000018,
+      "inputTokens": 381,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "multi_tool",
+      "iteration": 0,
+      "latencyMs": 1443.1118999999999,
+      "inputTokens": 422,
+      "outputTokens": 169,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir",
+        "exec"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "multi_tool",
+      "iteration": 0,
+      "latencyMs": 1365.6041000000005,
+      "inputTokens": 375,
+      "outputTokens": 15,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "multi_tool",
+      "iteration": 1,
+      "latencyMs": 1527.5368999999992,
+      "inputTokens": 422,
+      "outputTokens": 181,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir",
+        "exec"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "multi_tool",
+      "iteration": 1,
+      "latencyMs": 814.4909000000007,
+      "inputTokens": 375,
+      "outputTokens": 15,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "multi_tool",
+      "iteration": 2,
+      "latencyMs": 2033.133799999996,
+      "inputTokens": 422,
+      "outputTokens": 170,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir",
+        "exec"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "multi_tool",
+      "iteration": 2,
+      "latencyMs": 1095.8980999999985,
+      "inputTokens": 375,
+      "outputTokens": 15,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "list_dir"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "search_and_read",
+      "iteration": 0,
+      "latencyMs": 18441.659099999997,
+      "inputTokens": 423,
+      "outputTokens": 3586,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "search_and_read",
+      "iteration": 0,
+      "latencyMs": 1294.5447000000058,
+      "inputTokens": 376,
+      "outputTokens": 36,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "search_and_read",
+      "iteration": 1,
+      "latencyMs": 1928.552300000003,
+      "inputTokens": 423,
+      "outputTokens": 216,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "search_and_read",
+      "iteration": 1,
+      "latencyMs": 1478.0583999999944,
+      "inputTokens": 376,
+      "outputTokens": 36,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "search_and_read",
+      "iteration": 2,
+      "latencyMs": 1973.4936000000016,
+      "inputTokens": 423,
+      "outputTokens": 209,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "search_and_read",
+      "iteration": 2,
+      "latencyMs": 1261.6237000000037,
+      "inputTokens": 376,
+      "outputTokens": 36,
+      "parseError": false,
+      "toolMatch": true,
+      "paramMatch": true,
+      "toolsCalled": [
+        "search",
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "complex_edit",
+      "iteration": 0,
+      "latencyMs": 1858.7064000000028,
+      "inputTokens": 457,
+      "outputTokens": 159,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "complex_edit",
+      "iteration": 0,
+      "latencyMs": 1478.2945000000036,
+      "inputTokens": 410,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "complex_edit",
+      "iteration": 1,
+      "latencyMs": 1751.2406000000046,
+      "inputTokens": 457,
+      "outputTokens": 159,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "complex_edit",
+      "iteration": 1,
+      "latencyMs": 1451.7079999999987,
+      "inputTokens": 410,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "xml",
+      "testCase": "complex_edit",
+      "iteration": 2,
+      "latencyMs": 1885.8588000000018,
+      "inputTokens": 457,
+      "outputTokens": 159,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    },
+    {
+      "approach": "native",
+      "testCase": "complex_edit",
+      "iteration": 2,
+      "latencyMs": 1237.8565999999992,
+      "inputTokens": 410,
+      "outputTokens": 19,
+      "parseError": false,
+      "toolMatch": false,
+      "paramMatch": true,
+      "toolsCalled": [
+        "read_file"
+      ],
+      "details": "OK"
+    }
+  ]
+}

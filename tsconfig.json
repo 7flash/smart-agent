@@ -7,6 +7,8 @@
         "noEmit": true,
         "esModuleInterop": true,
         "verbatimModuleSyntax": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "jsx-ai",
         "types": [
             "bun-types"
         ]

@@ -3,7 +3,7 @@ export { Agent } from "./agent"
 export { Session } from "./session"
 export type { SessionEvent } from "./session"
 export { hydrateObjective } from "./objectives"
-export { callLLM, streamLLM } from "./llm"
+export { callText, streamLLM } from "jsx-ai"
 export type {
     AgentConfig,
     AgentEvent,
