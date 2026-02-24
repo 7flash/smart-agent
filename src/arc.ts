@@ -50,6 +50,17 @@ export function gridSimilarity(predicted: number[][], expected: number[][]): num
     return total === 0 ? 0 : correct / total
 }
 
+// Clean up code that may be wrapped in markdown fences, function declarations, or arrow functions
+function cleanCode(raw: string): string {
+    let code = raw.trim()
+    code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/i, '').replace(/\n?```$/g, '').trim()
+    const fnWrap = code.match(/^(?:function\s+\w*\s*\(input\)\s*\{)([\s\S]*)\}$/m)
+    if (fnWrap) code = fnWrap[1].trim()
+    const arrowWrap = code.match(/^(?:\(?\s*input\s*\)?\s*=>\s*\{)([\s\S]*)\}$/m)
+    if (arrowWrap) code = arrowWrap[1].trim()
+    return code
+}
+
 export function parseGrid(text: string): number[][] | null {
     // Strip markdown code fences
     let cleaned = text.trim()
@@ -220,18 +231,7 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 code: { type: "string", description: "JavaScript function body. Receives 'input' (number[][]). Must return number[][]. Example: 'return input.map(row => row.map(c => c === 0 ? 0 : 5 - c))'", required: true },
             },
             async execute(params): Promise<ToolResult> {
-                let code = (params.code as string).trim()
-
-                // Strip markdown code fences
-                code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/i, '').replace(/\n?```$/g, '').trim()
-
-                // Strip function wrapper if agent wrapped it: "function transform(input) { ... }"
-                const fnWrap = code.match(/^(?:function\s+\w*\s*\(input\)\s*\{)([\s\S]*)\}$/m)
-                if (fnWrap) code = fnWrap[1].trim()
-
-                // Strip arrow wrapper: "(input) => { ... }" or "input => { ... }"
-                const arrowWrap = code.match(/^(?:\(?\s*input\s*\)?\s*=>\s*\{)([\s\S]*)\}$/m)
-                if (arrowWrap) code = arrowWrap[1].trim()
+                const code = cleanCode(params.code as string)
 
                 try {
                     // Create the transform function
@@ -322,13 +322,8 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                 let predicted: number[][] | null
 
                 if (params.code) {
-                    // Apply code to test input — clean up like run_transform
-                    let code = (params.grid as string).trim()
-                    code = code.replace(/^```(?:javascript|js|typescript|ts)?\n?/i, '').replace(/\n?```$/g, '').trim()
-                    const fnWrap = code.match(/^(?:function\s+\w*\s*\(input\)\s*\{)([\s\S]*)\}$/m)
-                    if (fnWrap) code = fnWrap[1].trim()
-                    const arrowWrap = code.match(/^(?:\(?\s*input\s*\)?\s*=>\s*\{)([\s\S]*)\}$/m)
-                    if (arrowWrap) code = arrowWrap[1].trim()
+                    // Apply code to test input
+                    const code = cleanCode(params.grid as string)
 
                     try {
                         const fn = new Function("input", code) as (input: number[][]) => number[][]
@@ -368,8 +363,10 @@ export function createArcObjective(puzzle: ArcPuzzle): Objective {
             let predicted: number[][] | null
 
             if (lastSubmission.params.code) {
+                const code = cleanCode(gridText)
+
                 try {
-                    const fn = new Function("input", gridText) as (input: number[][]) => number[][]
+                    const fn = new Function("input", code) as (input: number[][]) => number[][]
                     predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
                 } catch {
                     return { met: false, reason: "Code execution failed during validation." }
