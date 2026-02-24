@@ -1,0 +1,9 @@
+{
+  "id": "6150a2bd",
+  "solved": true,
+  "similarity": 1,
+  "turns": 7,
+  "timeMs": 20316,
+  "submittedGrid": "0 0 4\n0 8 6\n5 3 6",
+  "expectedGrid": "0 0 4\n0 8 6\n5 3 6"
+}

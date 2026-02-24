@@ -1,0 +1,23 @@
+ARC-AGI Batch Report
+Model: gemini-2.5-flash
+Split: training
+Date: 2026-02-24T18:53:17.575Z
+
+Total: 10
+Solved: 8 (80.0%)
+Failed: 2
+Errors: 0
+Avg similarity: 80.0%
+Avg time: 39.1s
+
+── Per-puzzle results ──
+✅ 0d3d703e — sim=100% turns=3 time=13.6s
+✅ 1cf80156 — sim=100% turns=4 time=14.4s
+✅ 6150a2bd — sim=100% turns=7 time=20.3s
+❎ 4258a5f9 — sim=0% turns=10 time=44.9s
+✅ 25ff71a9 — sim=100% turns=6 time=21.2s
+✅ 3618c87e — sim=100% turns=5 time=15.6s
+✅ d511f180 — sim=100% turns=3 time=8.4s
+✅ a740d043 — sim=100% turns=9 time=74.0s
+✅ c9e6f938 — sim=100% turns=8 time=27.4s
+❎ 1b2d62fb — sim=0% turns=10 time=150.8s
