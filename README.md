@@ -305,6 +305,87 @@ export GEMINI_API_KEY=your-key
 bun run examples/code-review.ts
 ```
 
+## Architecture
+
+### Memory System
+
+Agents can persist structured data via the **Memory** system — a key-value store backed by SQLite. Keys support dot-notation prefixes for grouping (e.g. `users.john`, `config.theme`).
+
+```ts
+// In agent-generated scripts:
+const STATE_URL = process.env.STATE_URL // injected by scheduler
+
+// Store data
+await fetch(STATE_URL, {
+  method: 'POST',
+  body: JSON.stringify({ agentId: 1, key: 'users.john', value: JSON.stringify({ name: 'John', age: 30 }) })
+})
+
+// Retrieve data
+const res = await fetch(`${STATE_URL}?agentId=1&key=users.john`)
+const { value } = await res.json()
+```
+
+The Memory tab in the UI groups entries by prefix, renders JSON values with smart previews, and supports inline deletion.
+
+### Plugin System
+
+Plugins extend smart-agent with external integrations. Each plugin:
+
+1. **Installs as an npm package** — `bun add geeksy-telegram-plugin`
+2. **Registers skills** — YAML files describing new capabilities
+3. **Requires configuration** — API keys, auth tokens, etc.
+4. **Runs as a separate process** — managed by [BGR](https://github.com/nicholasgalante/bgr) in its own process group
+5. **Can expose its own UI** — plugins may serve their own web interface
+
+```
+┌─────────────────────────────────────────────────┐
+│  geeksy (main)        :3737                     │
+│  ├── Agent workspace  /                         │
+│  ├── Memory API       /api/agent-state          │
+│  └── Plugin registry  /api/plugins              │
+├─────────────────────────────────────────────────┤
+│  telegram-plugin       :3738  (bgrun group)     │
+│  ├── MTProto auth      /auth                    │
+│  ├── Message polling   → writes to shared SQLite│
+│  └── Plugin UI         /                        │
+├─────────────────────────────────────────────────┤
+│  future-plugin         :3739  (bgrun group)     │
+│  └── ...                                        │
+└─────────────────────────────────────────────────┘
+```
+
+**First plugin: Telegram** — User authenticates their Telegram account (MTProto via GramJS), the plugin polls chosen channels and writes messages into the shared SQLite database. Agents access this data through the Memory tab and via skills that enable codegen for sending messages during prompt execution or scheduled scripts.
+
+### Why Not just-bash / AgentFS?
+
+These are compelling projects that we evaluated for smart-agent:
+
+- **[just-bash](https://github.com/nicholasgalante/just-bash)** — A JavaScript bash interpreter that simulates shell commands as pure functions without OS access. It would allow sandboxed command execution without Docker.
+
+- **[AgentFS](https://github.com/nicholasgalante/agentfs)** — A virtual filesystem backed by SQLite, giving agents file operations with built-in time-travel (rollback to any point).
+
+**Why we chose not to adopt them:**
+
+1. **Our agents need real OS access.** Smart-agent's core value is executing real commands (`bun test`, `git commit`, `docker build`) on real files. Simulated bash and virtual filesystems would break this — agents couldn't install packages, run test suites, or interact with actual project code.
+
+2. **Isolation is solved differently.** Instead of virtualizing the OS layer, we isolate at the **process level** (BGR groups, separate working directories) and the **permission level** (per-agent skill scoping). This gives us sandboxing without sacrificing real execution.
+
+3. **We already have time-travel.** Git versioning + SQLite-backed state persistence provides rollback. The Memory system stores all agent state in SQLite with timestamps, giving us the audit trail AgentFS provides.
+
+4. **Edge/serverless is not our deployment target.** Smart-agent is designed for local-first execution on developer machines, not Cloudflare Workers. Our agents need access to the local filesystem, running processes, and system tools.
+
+**When they WOULD make sense:**
+- Multi-tenant SaaS where each user needs isolated execution
+- Untrusted code execution (like a coding playground)
+- Serverless deployment where OS access is impossible
+
+If you're building on top of smart-agent for these use cases, integrating just-bash + AgentFS through a custom tool is straightforward — see the [Custom Tools](#custom-tools) section.
+
+## Contributing
+
+Before proposing architectural changes, please review the [Why Not just-bash / AgentFS?](#why-not-just-bash--agentfs) section above. We've intentionally chosen real OS execution over virtualization. PRs adding sandboxed execution layers should include a compelling use case that can't be solved with the existing process-level isolation.
+
 ## License
 
 MIT
