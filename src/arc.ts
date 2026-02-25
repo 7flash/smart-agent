@@ -70,10 +70,16 @@ export function parseGrid(text: string): number[][] | null {
 
     // Handle JSON array format: [[1,2],[3,4]]
     if (cleaned.startsWith('[')) {
+        // Fix trailing commas before closing brackets (common LLM mistake)
+        const jsonFixed = cleaned.replace(/,\s*]/g, ']')
         try {
-            const parsed = JSON.parse(cleaned)
+            const parsed = JSON.parse(jsonFixed)
             if (Array.isArray(parsed) && Array.isArray(parsed[0])) {
                 return parsed.map((row: any) => row.map(Number))
+            }
+            // Handle flat array [0,1,2] as a single row
+            if (Array.isArray(parsed) && typeof parsed[0] === 'number') {
+                return [parsed.map(Number)]
             }
         } catch { /* not JSON, continue */ }
     }
@@ -83,11 +89,19 @@ export function parseGrid(text: string): number[][] | null {
         .replace(/\[/g, '')
         .replace(/\]/g, '')
         .replace(/,/g, ' ')
+        .replace(/\t/g, ' ')  // tabs → spaces
 
-    const lines = cleaned.split("\n")
+    const lines = cleaned.split(/\r?\n/)
         .map(l => l.trim())
-        .filter(l => l.length > 0 && /[\d]/.test(l))
-        .map(l => l.replace(/[^0-9\s|]/g, '').trim()) // strip non-digit/space/pipe chars
+        .filter(l => l.length > 0 && /\d/.test(l))
+        // Only strip non-digit chars, but KEEP the line if it has mostly digits
+        .map(l => {
+            // If line has more word characters than digits, it's probably text (like "Output grid:")
+            const digits = (l.match(/\d/g) || []).length
+            const letters = (l.match(/[a-zA-Z]/g) || []).length
+            if (letters > digits) return '' // skip text-heavy lines
+            return l.replace(/[^0-9\s|]/g, '').trim()
+        })
         .filter(l => l.length > 0)
 
     // Handle compact format "012|345|678"
@@ -320,11 +334,11 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
             },
             async execute(params): Promise<ToolResult> {
                 let predicted: number[][] | null
+                const gridStr = (params.grid as string || '')
 
                 if (params.code) {
-                    // Apply code to test input
-                    const code = cleanCode(params.grid as string)
-
+                    // Explicit code mode
+                    const code = cleanCode(gridStr)
                     try {
                         const fn = new Function("input", code) as (input: number[][]) => number[][]
                         predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
@@ -332,11 +346,20 @@ export function createArcTools(puzzle: ArcPuzzle): Tool[] {
                         return { success: false, output: "", error: `Code execution failed: ${e.message}` }
                     }
                 } else {
-                    predicted = parseGrid(params.grid as string)
+                    predicted = parseGrid(gridStr)
+
+                    // Auto-detect code: if grid parsing failed and input looks like code, try executing it
+                    if (!predicted && (gridStr.includes('return ') || gridStr.includes('=>') || gridStr.includes('function'))) {
+                        try {
+                            const code = cleanCode(gridStr)
+                            const fn = new Function("input", code) as (input: number[][]) => number[][]
+                            predicted = fn(JSON.parse(JSON.stringify(puzzle.test[0].input)))
+                        } catch { /* code execution also failed, leave predicted as null */ }
+                    }
                 }
 
-                if (!predicted) {
-                    return { success: false, output: "", error: "Could not parse grid." }
+                if (!predicted || !Array.isArray(predicted) || !Array.isArray(predicted[0])) {
+                    return { success: false, output: "", error: "Could not parse grid. Use space-separated numbers (one row per line), JSON array ([[1,2],[3,4]]), or set code=true to submit a transform function." }
                 }
                 return {
                     success: true,
