@@ -1,9 +1,0 @@
-{
-  "id": "3618c87e",
-  "solved": true,
-  "similarity": 1,
-  "turns": 5,
-  "timeMs": 15618,
-  "submittedGrid": "0 0 0 0 0\n0 0 0 0 0\n0 0 0 0 0\n0 0 5 0 5\n5 5 1 5 1",
-  "expectedGrid": "0 0 0 0 0\n0 0 0 0 0\n0 0 0 0 0\n0 0 5 0 5\n5 5 1 5 1"
-}

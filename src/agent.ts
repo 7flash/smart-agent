@@ -216,35 +216,60 @@ export class Agent {
                 let streamed = false
                 let llmResult: LLMResponse | null = null
 
-                try {
-                    // Try streaming first for real-time UX
-                    const messages = state.messages.map(m => ({
-                        role: m.role as string,
-                        content: m.content,
-                    }))
+                if (this.config.noStreaming) {
+                    // No-streaming mode — use structured call for token usage tracking
+                    llmResult = await measure(`LLM ${this.config.model}`, () =>
+                        this.callWithJsxAi(state.messages)
+                    ) as LLMResponse
 
-                    for await (const chunk of streamLLM(this.config.model, messages, {
-                        temperature: this.config.temperature,
-                        maxTokens: this.config.maxTokens,
-                    })) {
-                        accumulated += chunk
-                        yield { type: "thinking_delta", iteration: i, delta: chunk }
-                        streamed = true
+                    if (!llmResult) {
+                        yield { type: "error", iteration: i, error: "LLM returned empty response" }
+                        state.messages.push({ role: "user", content: "Empty response. Try again." })
+                        continue
                     }
-                } catch (streamErr: any) {
-                    // Streaming failed — fall back to structured call
-                    if (!streamed) {
-                        llmResult = await measure(`LLM ${this.config.model}`, () =>
-                            this.callWithJsxAi(state.messages)
-                        ) as LLMResponse
 
-                        if (!llmResult) {
-                            yield { type: "error", iteration: i, error: "LLM returned empty response" }
-                            state.messages.push({ role: "user", content: "Empty response. Try again." })
-                            continue
+                    accumulated = llmResult.text || ""
+
+                    // Emit usage event for benchmarking
+                    if (llmResult.usage) {
+                        yield { type: "usage", iteration: i, usage: llmResult.usage }
+                    }
+                } else {
+                    try {
+                        // Try streaming first for real-time UX
+                        const messages = state.messages.map(m => ({
+                            role: m.role as string,
+                            content: m.content,
+                        }))
+
+                        for await (const chunk of streamLLM(this.config.model, messages, {
+                            temperature: this.config.temperature,
+                            maxTokens: this.config.maxTokens,
+                        })) {
+                            accumulated += chunk
+                            yield { type: "thinking_delta", iteration: i, delta: chunk }
+                            streamed = true
                         }
+                    } catch (streamErr: any) {
+                        // Streaming failed — fall back to structured call
+                        if (!streamed) {
+                            llmResult = await measure(`LLM ${this.config.model}`, () =>
+                                this.callWithJsxAi(state.messages)
+                            ) as LLMResponse
 
-                        accumulated = llmResult.text || ""
+                            if (!llmResult) {
+                                yield { type: "error", iteration: i, error: "LLM returned empty response" }
+                                state.messages.push({ role: "user", content: "Empty response. Try again." })
+                                continue
+                            }
+
+                            accumulated = llmResult.text || ""
+
+                            // Emit usage event from fallback path too
+                            if (llmResult.usage) {
+                                yield { type: "usage", iteration: i, usage: llmResult.usage }
+                            }
+                        }
                     }
                 }
 

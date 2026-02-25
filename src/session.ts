@@ -43,6 +43,14 @@ function classifyMessage(message: string, hasHistory: boolean): 'conversational'
         return 'arc'
     }
 
+    // ── Schedule/repeat detection (must be BEFORE conversational) ──
+    // Catches: "tell me a joke each minute", "every 5 seconds do X", "repeat X hourly", etc.
+    if (/\b(every|each)\s+(\d+\s*)?(second|minute|hour|day|week|month|sec|min|hr)/i.test(lower) ||
+        /\b(repeat|recurring|schedule|cron|interval)\b/i.test(lower) ||
+        /\beverr?y\s+(morning|evening|night|noon|midnight)\b/i.test(lower)) {
+        return 'task'
+    }
+
     // ── Task detection — explicit action verbs targeting the system ──
     const taskPatterns = [
         /\b(create|make|write|build|generate|add|delete|remove|install|update|modify|edit|fix|deploy|setup|configure)\b.*\b(file|folder|directory|script|code|project|app|server|database|component|function|test|page)\b/i,
@@ -361,10 +369,10 @@ export class Session {
         yield { type: "planning", objectives: allObjectives }
 
         // ── Confirmation gate — pause and wait for user confirmation ──
-        // Auto-confirm if all NEW objectives are pure "respond" type (no side effects)
-        const isConversational = newObjectives.every(p => p.type === "respond")
+        // Auto-confirm if all NEW objectives are lightweight (respond or schedule — no destructive side effects)
+        const isAutoConfirm = newObjectives.every(p => p.type === "respond" || p.type === "task_scheduled")
 
-        if (this.requireConfirmation && !isConversational) {
+        if (this.requireConfirmation && !isAutoConfirm) {
             yield { type: "awaiting_confirmation", objectives: allObjectives }
 
             const confirmed = await new Promise<boolean>(resolve => {

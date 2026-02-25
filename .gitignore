@@ -5,3 +5,4 @@ node_modules/
 .config.toml
 .env*
 arc-results/
+arc-log.txt
