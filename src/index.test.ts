@@ -4,7 +4,6 @@ import { Agent } from "./agent"
 import { objToXml, xmlToObj } from "./xml"
 import { loadSkills, formatSkillsForPrompt } from "./skills"
 import { createBuiltinTools } from "./tools"
-import type { Skill } from "./types"
 import { writeFileSync, mkdirSync, rmSync } from "fs"
 import { join } from "path"
 
@@ -63,46 +62,39 @@ describe("XML", () => {
 describe("Skills", () => {
     const tmpDir = join(process.cwd(), ".test-skills-tmp")
 
-    test("loads inline skill", async () => {
-        const skill: Skill = {
-            name: "docker",
-            description: "Docker management",
-            commands: [{ name: "build", description: "Build image", usage: "docker build -t {tag} .", params: { tag: "Image tag" } }],
-        }
-        const loaded = await loadSkills([skill])
-        expect(loaded).toHaveLength(1)
-        expect(loaded[0].name).toBe("docker")
-    })
-
-    test("loads YAML skill file", async () => {
+    test("loads .md skill file", async () => {
         mkdirSync(tmpDir, { recursive: true })
-        const yamlContent = `name: git
+        const mdContent = `---
+name: git
 description: Git version control
-commands:
-  - name: commit
-    description: Create a commit
-    usage: "git commit -m {message}"
-    params:
-      message: Commit message`
-        const path = join(tmpDir, "git.yaml")
-        writeFileSync(path, yamlContent)
+---
+
+## Commands
+
+### commit
+Create a commit.
+\`\`\`bash
+git commit -m "{message}"
+\`\`\`
+- **message**: Commit message`
+        const path = join(tmpDir, "git.md")
+        writeFileSync(path, mdContent)
 
         const loaded = await loadSkills([path])
         expect(loaded).toHaveLength(1)
         expect(loaded[0].name).toBe("git")
-        expect(loaded[0].commands[0].name).toBe("commit")
+        expect(loaded[0].description).toBe("Git version control")
+        expect(loaded[0].content).toContain("git commit")
 
         rmSync(tmpDir, { recursive: true, force: true })
     })
 
     test("formats skills for prompt", () => {
-        const skills: Skill[] = [{
+        const skills = [{
             name: "npm",
             description: "Node package manager",
-            commands: [
-                { name: "install", description: "Install packages", usage: "npm install {pkg}" },
-                { name: "test", description: "Run tests", usage: "npm test" },
-            ],
+            content: "### install\nInstall packages.\n```bash\nnpm install {pkg}\n```\n\n### test\nRun tests.\n```bash\nnpm test\n```",
+            path: "/tmp/npm.md",
         }]
         const prompt = formatSkillsForPrompt(skills)
         expect(prompt).toContain("npm")
@@ -304,14 +296,10 @@ describe("Agent", () => {
         expect(agent).toBeDefined()
     })
 
-    test("constructor accepts inline skills", () => {
+    test("constructor accepts skill file paths", () => {
         const agent = new Agent({
             model: "test",
-            skills: [{
-                name: "docker",
-                description: "Docker",
-                commands: [{ name: "build", description: "Build", usage: "docker build" }],
-            }],
+            skills: ["./skills/docker.md"],
             objectives: [{
                 name: "done",
                 description: "Finish",

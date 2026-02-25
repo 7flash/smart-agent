@@ -20,7 +20,7 @@ Autonomous agentic loop with Skills + Objectives for Bun.
 ```
 
 - **Objectives** = WHAT to achieve — blackbox `validate()` functions that return `{ met, reason }`
-- **Skills** = CONTEXT — YAML files the LLM reads to learn available CLIs (`git`, `bun`, `docker`, your project scripts)
+- **Skills** = CONTEXT — .md files with YAML frontmatter the LLM reads to learn available CLIs (`git`, `bun`, `docker`, your project scripts)
 - **Tools** = HOW to interact — built-in `exec`, `read_file`, `write_file`, `edit_file`, `search`, `list_dir`
 - **`agent.run(prompt)`** = the trigger that kicks off the loop
 
@@ -40,7 +40,7 @@ import { Agent } from "smart-agent"
 const agent = new Agent({
   model: "gemini-2.5-flash",
   // Skills teach the agent what CLIs are available
-  skills: ["./skills/bun.yaml", "./skills/git.yaml"],
+  skills: ["./skills/bun.md", "./skills/git.md"],
   // Objectives define success — blackbox validation
   objectives: [{
     name: "tests_pass",
@@ -143,7 +143,7 @@ prompt → LLM → XML response → execute tools → check objectives → loop
 interface AgentConfig {
   model: string                    // LLM model name
   objectives?: Objective[]         // Goals to achieve (required for run(), optional for plan())
-  skills?: (string | Skill)[]     // YAML file paths or inline Skill objects
+  skills?: (string | Skill)[]     // .md file paths or inline Skill objects
   maxIterations?: number           // Default: 20
   temperature?: number             // Default: 0.3
   maxTokens?: number               // Default: 8000
@@ -210,24 +210,29 @@ const agent = new Agent({
 
 ## Skills
 
-Skills are YAML files describing CLI tools. They're injected into the system prompt so the LLM knows how to use them via `exec`.
+Skills are `.md` files with YAML frontmatter describing CLI tools. They're injected into the system prompt so the LLM knows how to use them via `exec`.
 
-```yaml
-# skills/git.yaml
+```markdown
+---
 name: git
-description: Git version control
-commands:
-  - name: commit
-    description: Create a commit
-    usage: "git commit -m \"{message}\""
-    params:
-      message: Commit message
+description: Git version control — staging, committing, branching, and history
+---
+
+# Git
+
+## Commands
+
+### commit
+Create a commit with a message.
+```bash
+git commit -m "{message}"
 ```
+- **message**: Commit message
 
 ```ts
 const agent = new Agent({
   model: "gemini-3-flash-preview",
-  skills: ["./skills/git.yaml", "./skills/docker.yaml"],
+  skills: ["./skills/git.md", "./skills/docker.md"],
   objectives: [/* ... */],
 })
 ```
@@ -333,7 +338,7 @@ The Memory tab in the UI groups entries by prefix, renders JSON values with smar
 Plugins extend smart-agent with external integrations. Each plugin:
 
 1. **Installs as an npm package** — `bun add geeksy-telegram-plugin`
-2. **Registers skills** — YAML files describing new capabilities
+2. **Registers skills** — .md files describing new capabilities
 3. **Requires configuration** — API keys, auth tokens, etc.
 4. **Runs as a separate process** — managed by [BGR](https://github.com/nicholasgalante/bgr) in its own process group
 5. **Can expose its own UI** — plugins may serve their own web interface

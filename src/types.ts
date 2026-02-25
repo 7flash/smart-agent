@@ -16,20 +16,8 @@ export interface ToolResult {
     error?: string
 }
 
-/** A skill — loaded from YAML, describes CLI commands the agent can use via exec */
-export interface Skill {
-    name: string
-    description: string
-    commands: SkillCommand[]
-}
-
-/** A single command within a skill */
-export interface SkillCommand {
-    name: string
-    description: string
-    usage: string
-    params?: Record<string, string>
-}
+// Skills are .md files with YAML frontmatter, parsed by jsx-ai's parseSkillFile.
+// See jsx-ai/src/skill.ts for the SkillMeta type.
 
 /** An objective the agent must achieve */
 export interface Objective {
@@ -85,8 +73,8 @@ export interface ToolInvocation {
 export interface AgentConfig {
     /** LLM model identifier (e.g. "gemini-3-flash-preview", "gpt-4o") */
     model: string
-    /** Skills — either file paths to YAML or inline Skill objects */
-    skills?: (string | Skill)[]
+    /** Skills — file paths to .md skill files (YAML frontmatter + markdown body) */
+    skills?: string[]
     /** Objectives the agent must achieve. Optional when using Agent.plan() */
     objectives?: Objective[]
     /** Maximum loop iterations. Default: 20 */

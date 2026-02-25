@@ -1,29 +1,24 @@
 // smart-agent/src/skills.ts
-// Loads YAML skill files and formats them for the system prompt
-import yaml from "js-yaml"
-import type { Skill } from "./types"
+// Loads .md skill files (YAML frontmatter + markdown body) via jsx-ai's parseSkillFile
+import { parseSkillFile } from "jsx-ai"
+import type { SkillMeta } from "jsx-ai"
 
-/** Load skills from file paths or inline objects */
-export async function loadSkills(skills: (string | Skill)[]): Promise<Skill[]> {
-    const loaded: Skill[] = []
+export type { SkillMeta as Skill }
 
-    for (const skill of skills) {
-        if (typeof skill === "string") {
-            // YAML file path — lazy load
-            const file = Bun.file(skill)
-            if (!(await file.exists())) {
-                console.warn(`[smart-agent] Skill file not found: ${skill}`)
-                continue
-            }
-            const content = await file.text()
-            const parsed = yaml.load(content) as Skill
-            if (parsed && parsed.name && parsed.commands) {
-                loaded.push(parsed)
-            } else {
-                console.warn(`[smart-agent] Invalid skill file: ${skill}`)
-            }
-        } else {
-            loaded.push(skill)
+/** Load skills from file paths → returns parsed skill metadata */
+export async function loadSkills(skills: string[]): Promise<SkillMeta[]> {
+    const loaded: SkillMeta[] = []
+
+    for (const path of skills) {
+        const file = Bun.file(path)
+        if (!(await file.exists())) {
+            console.warn(`[smart-agent] Skill file not found: ${path}`)
+            continue
+        }
+        try {
+            loaded.push(parseSkillFile(path))
+        } catch (err) {
+            console.warn(`[smart-agent] Failed to parse skill: ${path}`, err)
         }
     }
 
@@ -31,20 +26,12 @@ export async function loadSkills(skills: (string | Skill)[]): Promise<Skill[]> {
 }
 
 /** Format loaded skills into a system prompt section */
-export function formatSkillsForPrompt(skills: Skill[]): string {
+export function formatSkillsForPrompt(skills: SkillMeta[]): string {
     if (skills.length === 0) return ""
 
-    const sections = skills.map(skill => {
-        const cmds = skill.commands
-            .map(cmd => {
-                const params = cmd.params
-                    ? Object.entries(cmd.params).map(([k, v]) => `      ${k}: ${v}`).join("\n")
-                    : ""
-                return `    ${cmd.name}: ${cmd.description}\n      Usage: ${cmd.usage}${params ? `\n      Params:\n${params}` : ""}`
-            })
-            .join("\n")
-        return `  ${skill.name} — ${skill.description}\n${cmds}`
-    })
+    const sections = skills.map(skill =>
+        `## ${skill.name}\n${skill.description ? skill.description + '\n' : ''}\n${skill.content}`
+    )
 
-    return `\nAVAILABLE SKILLS (use via exec tool):\n${sections.join("\n\n")}`
+    return `\nAVAILABLE SKILLS (use via exec tool):\n\n${sections.join("\n\n---\n\n")}`
 }
