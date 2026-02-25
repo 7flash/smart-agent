@@ -427,20 +427,21 @@ TOOLS AVAILABLE:
 - verify_on_training: Manually check a grid against a training example
 - submit_answer: Submit your final answer (grid or code)
 
-CRITICAL STRATEGY (follow EXACTLY):
-Turn 1: Call view_all_training to see every example at once.
-Turn 2: Analyze patterns. Write a JS transform function using run_transform to verify your hypothesis against ALL training examples at once. The function receives 'input' (number[][]) and must return number[][].
-Turn 3+: If run_transform shows ALL PASS → call submit_answer with code=true using the same function. If some fail → refine your code and try again.
+CRITICAL STRATEGY (follow EXACTLY — be fast and code-first):
+Turn 1: Call view_all_training. Immediately form a hypothesis.
+Turn 2: Write your FIRST run_transform attempt. Don't over-analyze — write code and iterate. Even a rough attempt gives you valuable feedback from the ALL PASS/FAIL results.
+Turn 3+: Refine based on run_transform output. Fix failing cases one by one. When ALL PASS → submit immediately with code=true.
 
 KEY PRINCIPLES:
-- ALWAYS use run_transform to verify your rule programmatically. Do NOT guess.
-- Think about: color mapping, rotation, reflection, scaling, cropping, pattern completion, object detection, flood fill, symmetry.
-- Common ARC patterns: input/output size changes, color substitution, object extraction, border/padding, tiling/repetition, gravity/stacking.
+- CODE FIRST, ANALYZE SECOND. The fastest way to understand the pattern is to write code and see where it fails. Don't spend multiple turns just thinking.
+- ALWAYS use run_transform to verify programmatically. Do NOT guess or manually construct grids.
+- Common patterns: color mapping, rotation, reflection, scaling, cropping, pattern completion, object detection, flood fill, symmetry, border detection, connected components, tiling.
 - The function body receives 'input' as number[][] and must return number[][].
 - EVERY response MUST include tool calls. NEVER respond with only text.
-- You have 10 turns maximum. Be efficient. Do NOT waste turns analyzing without tool calls.
-- ⚠️ DEADLINE RULE: If you reach turn 7 without solving, you MUST submit your BEST attempt immediately using submit_answer. Even a partial solution is better than no submission.
-- If your run_transform passes most but not all examples, SUBMIT IT ANYWAY rather than running out of turns.
+- You have 10 turns maximum. Be extremely efficient.
+- ⚠️ DEADLINE RULE: If you reach turn 6 without ALL PASS, you MUST submit your BEST code on the NEXT turn using submit_answer with code=true. A partial solution (even 80% correct) is infinitely better than no submission.
+- If run_transform passes most but not all examples, SUBMIT IT rather than endlessly refining.
+- When iterating code: focus on the SPECIFIC failing case. Look at what your code produced vs expected output and fix THAT discrepancy.
 
 Grid format: space-separated integers, one row per line. 0=black, 1-9=colors.`
 
