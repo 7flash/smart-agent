@@ -70,7 +70,7 @@ export interface AgentMetrics {
     turnCount: number
 }
 
-interface PuzzleResult {
+export interface PuzzleResult {
     id: string
     solved: boolean
     similarity: number // 0-1 for best attempt
