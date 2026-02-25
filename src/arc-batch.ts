@@ -417,11 +417,11 @@ async function main() {
             ? validResults.reduce((sum, r) => sum + r.timeMs, 0) / validResults.length
             : 0
 
-        // Token & cost aggregates
-        state.stats.totalPromptTokens = state.results.reduce((s, r) => s + r.metrics.promptTokens, 0)
-        state.stats.totalCompletionTokens = state.results.reduce((s, r) => s + r.metrics.completionTokens, 0)
-        state.stats.totalThinkingTokens = state.results.reduce((s, r) => s + r.metrics.thinkingTokens, 0)
-        state.stats.totalCostUsd = state.results.reduce((s, r) => s + r.metrics.totalCostUsd, 0)
+        // Token & cost aggregates (null-safe for old results without metrics)
+        state.stats.totalPromptTokens = state.results.reduce((s, r) => s + (r.metrics?.promptTokens || 0), 0)
+        state.stats.totalCompletionTokens = state.results.reduce((s, r) => s + (r.metrics?.completionTokens || 0), 0)
+        state.stats.totalThinkingTokens = state.results.reduce((s, r) => s + (r.metrics?.thinkingTokens || 0), 0)
+        state.stats.totalCostUsd = state.results.reduce((s, r) => s + (r.metrics?.totalCostUsd || 0), 0)
         state.stats.avgCostPerTask = state.results.length > 0
             ? state.stats.totalCostUsd / state.results.length
             : 0
