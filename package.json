@@ -29,8 +29,8 @@
     "author": "7flash",
     "dependencies": {
         "js-yaml": "^4.1.0",
-        "jsx-ai": "^0.1.0",
-        "measure-fn": "latest"
+        "jsx-ai": "^0.1.2",
+        "measure-fn": "^3.10.2"
     },
     "devDependencies": {
         "@types/bun": "latest",

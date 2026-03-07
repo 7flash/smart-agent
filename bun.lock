@@ -6,8 +6,8 @@
       "name": "smart-agent",
       "dependencies": {
         "js-yaml": "^4.1.0",
-        "jsx-ai": "^0.1.0",
-        "measure-fn": "latest",
+        "jsx-ai": "^0.1.2",
+        "measure-fn": "^3.10.2",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -28,14 +28,14 @@
 
     "js-yaml": ["js-yaml@4.1.1", "", { "dependencies": { "argparse": "^2.0.1" }, "bin": { "js-yaml": "bin/js-yaml.js" } }, "sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA=="],
 
-    "jsx-ai": ["jsx-ai@0.1.0", "", { "dependencies": { "measure-fn": "^3.7.0" } }, "sha512-DVzedpd0Pt4GLniBowl9Rh25liRv8bFA1Pd5fkvswLo5I6JQYxjbI0fGUMKoQoLXbxvwRAdAxSJyOkNqgt5Jbg=="],
+    "jsx-ai": ["jsx-ai@0.1.2", "", { "dependencies": { "measure-fn": "3.10.1" } }, "sha512-9ceyf5LK1xyMc29nbwqYPBCYuBYwfxp5vIaeCBLA89cGyl2tSqEk5k79GLuX+lQ8PJZmFVusmY3xivKcR02R2A=="],
 
-    "measure-fn": ["measure-fn@3.6.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-JOMHDNX8MJX48xc4SupxLZ4XrygDdA0wVdQM9ZsxYAi7uvK4JdWEyGtIU08yPVyEzAOeVLFoys2WVerGRzWXng=="],
+    "measure-fn": ["measure-fn@3.10.2", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-wNDbSwDn3gDMI1sizFyr/31rt546cGcM4utSQt8ruiUKNJ/134bSN0okOqjzZw/AE5AYGB6QJTShlYXAzddmiQ=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 
-    "jsx-ai/measure-fn": ["measure-fn@3.7.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-URe9XtpFnAE0AeYcwBznqDBq6ekgXJ4sNBXkLEW4lirtxHm/OcuO8w7kja7mzSk1Y7srWxo2+5MQKKvuCNsqsg=="],
+    "jsx-ai/measure-fn": ["measure-fn@3.10.1", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-6HAk/3ulapzrOShuyrduWViciOqP8S6FLTNVlalHuac3tJKlMCH/OAHCUiTg+ecjB04iYnWS4Sxy84Xd1wjYbQ=="],
   }
 }
