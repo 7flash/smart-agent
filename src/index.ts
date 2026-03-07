@@ -6,6 +6,8 @@ export { hydrateObjective } from "./objectives"
 export { fetchPuzzle, fetchPuzzleIndex, createArcTools, createArcObjective, extractPuzzleId, gridToText, gridsEqual, parseGrid, ARC_URGENCY_MESSAGE } from "./arc"
 export type { ArcPuzzle } from "./arc"
 export { callText, streamLLM } from "jsx-ai"
+export { loadSkills, formatSkillsForPrompt } from "./skills"
+export type { Skill } from "./skills"
 export type {
     AgentConfig,
     AgentEvent,
@@ -14,8 +16,6 @@ export type {
     Objective,
     ObjectiveResult,
     PlannedObjective,
-    Skill,
-    SkillCommand,
     Tool,
     ToolResult,
 } from "./types"
