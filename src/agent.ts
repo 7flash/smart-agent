@@ -44,7 +44,7 @@ export class Agent {
 
         // Register built-in tools + custom tools
         this.tools = new Map()
-        for (const tool of createBuiltinTools(this.config.cwd, this.config.toolTimeoutMs)) {
+        for (const tool of createBuiltinTools(this.config.cwd, this.config.toolTimeoutMs, this.config.safeMode)) {
             this.tools.set(tool.name, tool)
         }
         if (config.tools) {

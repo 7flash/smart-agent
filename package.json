@@ -28,8 +28,9 @@
     },
     "author": "7flash",
     "dependencies": {
+        "gx402": "^1.5.1",
         "js-yaml": "^4.1.0",
-        "jsx-ai": "^0.1.2",
+        "jsx-ai": "0.1.5",
         "measure-fn": "^3.10.2"
     },
     "devDependencies": {

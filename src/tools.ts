@@ -10,7 +10,7 @@ function resolvePath(cwd: string, filePath: string): string {
     return `${cwd}${sep}${filePath}`
 }
 
-export function createBuiltinTools(cwd: string, timeoutMs: number): Tool[] {
+export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false): Tool[] {
     return [
         // ── read_file ──
         {
@@ -79,6 +79,9 @@ export function createBuiltinTools(cwd: string, timeoutMs: number): Tool[] {
                 command: { type: "string", description: "Shell command to execute", required: true },
             },
             execute: (params) => measure(`tool:exec`, async () => {
+                if (safeMode) {
+                    return { success: false, output: "", error: "Safe Mode is ON. You are not allowed to execute shell commands autonomously. Ask the user to run this command instead." }
+                }
                 if (!params.command || typeof params.command !== "string") {
                     return { success: false, output: "", error: "command parameter is required" }
                 }
