@@ -1,14 +1,15 @@
 {
     "name": "smart-agent-ai",
-    "version": "1.0.0",
-    "description": "Autonomous agentic loop with Skills + Objectives for Bun",
+    "version": "2.0.0",
+    "description": "Autonomous AI agent framework for Bun — skills, objectives, parallel tools, safe mode, LLM streaming",
     "type": "module",
     "main": "src/index.ts",
     "module": "src/index.ts",
     "types": "src/index.ts",
     "files": [
         "src",
-        "skills"
+        "skills",
+        "CHANGELOG.md"
     ],
     "keywords": [
         "agent",
