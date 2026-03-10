@@ -106,8 +106,21 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                 ])
 
                 if (result === "timeout") {
+                    // Capture partial output before killing
+                    let partialOutput = ""
+                    try {
+                        const partialStdout = await new Response(proc.stdout).text().catch(() => "")
+                        const partialStderr = await new Response(proc.stderr).text().catch(() => "")
+                        if (partialStdout) partialOutput += `partial stdout:\n${partialStdout.substring(0, 5000)}\n`
+                        if (partialStderr) partialOutput += `partial stderr:\n${partialStderr.substring(0, 5000)}\n`
+                    } catch { /* ignore read errors on killed process */ }
                     proc.kill()
-                    return { success: false, output: "", error: `Timed out after ${timeoutMs}ms` }
+                    const cmd = params.command.length > 80 ? params.command.substring(0, 80) + '...' : params.command
+                    return {
+                        success: false,
+                        output: partialOutput || "",
+                        error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed. Consider breaking this into smaller steps or increasing the timeout.`
+                    }
                 }
 
                 const { exitCode, stdout, stderr } = result

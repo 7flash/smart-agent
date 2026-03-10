@@ -1,13 +1,13 @@
 # Smart Agent — Tasks & Ideas
 
 ## 🟡 Priority: Improve
-- [ ] **Tool execution timeout handling** — Currently `exec` timeout kills the process but doesn't clearly communicate the timeout reason back to the LLM. Could add explicit "Command timed out after 30s" messaging.
+- [x] ~~**Tool execution timeout handling**~~ — ✅ DONE. Timeout now captures partial stdout/stderr before killing, includes command name and human-friendly duration in error message, suggests mitigation.
 - [ ] **Safe mode UX** — When `safeMode: true`, the agent is told to "ask the user" but there's no actual interactive prompt mechanism. Could add a callback or event.
 
 ## 🟢 Priority: Features
-- [ ] **Parallel tool execution** — Currently tools execute sequentially. When the LLM requests multiple independent tool calls, they could run in parallel.
+- [x] ~~**Parallel tool execution**~~ — ✅ DONE. Read-only tools (read_file, list_dir, search) now run concurrently via `Promise.all`. Write tools stay sequential.
 - [ ] **Tool result streaming** — Stream large `exec` outputs to the LLM incrementally instead of waiting for the full result.
-- [ ] **GitHub Actions CI** — Add a workflow that runs `bun test` on PR.
+- [x] ~~**GitHub Actions CI**~~ — ✅ DONE. `ci.yml` runs `bun test` and `tsc --noEmit` on push/PR to main.
 
 ## 📝 Architecture Notes
 - **Package**: `smart-agent-ai` on npm (v1.0.0)
