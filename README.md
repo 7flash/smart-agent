@@ -207,6 +207,7 @@ const agent = new Agent({
   }],
   objectives: [/* ... */],
 })
+```
 
 ## Skills
 
