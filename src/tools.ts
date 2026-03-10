@@ -10,7 +10,7 @@ function resolvePath(cwd: string, filePath: string): string {
     return `${cwd}${sep}${filePath}`
 }
 
-export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false): Tool[] {
+export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false, onApproval?: (tool: string, params: Record<string, any>) => Promise<boolean> | boolean, onToolOutput?: (tool: string, chunk: string) => void): Tool[] {
     return [
         // ── read_file ──
         {
@@ -80,7 +80,16 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
             },
             execute: (params) => measure(`tool:exec`, async () => {
                 if (safeMode) {
-                    return { success: false, output: "", error: "Safe Mode is ON. You are not allowed to execute shell commands autonomously. Ask the user to run this command instead." }
+                    // If onApproval callback exists, ask the user
+                    if (onApproval) {
+                        const approved = await onApproval("exec", params)
+                        if (!approved) {
+                            return { success: false, output: "", error: `Command rejected by user: "${params.command}". The user did not approve this command.` }
+                        }
+                        // Approved — fall through to execute
+                    } else {
+                        return { success: false, output: "", error: "Safe Mode is ON. You are not allowed to execute shell commands autonomously. Ask the user to run this command instead." }
+                    }
                 }
                 if (!params.command || typeof params.command !== "string") {
                     return { success: false, output: "", error: "command parameter is required" }
@@ -94,6 +103,67 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     env: { ...process.env },
                 })
 
+                // Stream output chunks if callback provided
+                let streamedStdout = ""
+                let streamedStderr = ""
+
+                if (onToolOutput) {
+                    // Read stdout and stderr in parallel, streaming chunks
+                    const readStream = async (stream: ReadableStream<Uint8Array> | null, label: "stdout" | "stderr") => {
+                        if (!stream) return ""
+                        const reader = stream.getReader()
+                        const decoder = new TextDecoder()
+                        let text = ""
+                        while (true) {
+                            const { done, value } = await reader.read()
+                            if (done) break
+                            const chunk = decoder.decode(value, { stream: true })
+                            text += chunk
+                            onToolOutput("exec", chunk)
+                        }
+                        return text
+                    }
+
+                    const timeout = new Promise<"timeout">(r => setTimeout(() => r("timeout"), timeoutMs))
+                    const result = await Promise.race([
+                        (async () => {
+                            const [stdout, stderr, exitCode] = await Promise.all([
+                                readStream(proc.stdout as any, "stdout"),
+                                readStream(proc.stderr as any, "stderr"),
+                                proc.exited,
+                            ])
+                            return { exitCode, stdout, stderr }
+                        })(),
+                        timeout,
+                    ])
+
+                    if (result === "timeout") {
+                        proc.kill()
+                        const cmd = params.command.length > 80 ? params.command.substring(0, 80) + '...' : params.command
+                        return {
+                            success: false,
+                            output: streamedStdout || "",
+                            error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed.`
+                        }
+                    }
+
+                    const { exitCode, stdout, stderr } = result
+                    const output = [
+                        stdout ? `stdout:\n${stdout}` : "",
+                        stderr ? `stderr:\n${stderr}` : "",
+                        `exit code: ${exitCode}`,
+                    ].filter(Boolean).join("\n")
+
+                    const max = 50_000
+                    const truncated = output.length > max ? output.substring(0, max) + "\n...[truncated]" : output
+                    return {
+                        success: exitCode === 0,
+                        output: truncated,
+                        error: exitCode !== 0 ? `Exit code ${exitCode}` : undefined,
+                    }
+                }
+
+                // Non-streaming path (original behavior)
                 const timeout = new Promise<"timeout">(r => setTimeout(() => r("timeout"), timeoutMs))
                 const result = await Promise.race([
                     (async () => {
