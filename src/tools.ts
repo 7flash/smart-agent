@@ -12,7 +12,7 @@ function resolvePath(cwd: string, filePath: string): string {
     return `${cwd}${sep}${filePath}`
 }
 
-export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false, onApproval?: (tool: string, params: Record<string, any>) => Promise<boolean> | boolean, onToolOutput?: (tool: string, chunk: string) => void): Tool[] {
+export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false, onApproval?: (tool: string, params: Record<string, any>) => Promise<boolean> | boolean, onToolOutput?: (tool: string, chunk: string) => void, onToolProgress?: (tool: string, elapsedMs: number) => void): Tool[] {
     return [
         // ── read_file ──
         {
@@ -105,6 +105,17 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     env: { ...process.env },
                 })
 
+                // ── Heartbeat progress timer — fires every 5s while command runs ──
+                const execStart = Date.now()
+                const PROGRESS_INTERVAL = 5000
+                let progressTimer: ReturnType<typeof setInterval> | undefined
+                if (onToolProgress) {
+                    progressTimer = setInterval(() => {
+                        onToolProgress("exec", Date.now() - execStart)
+                    }, PROGRESS_INTERVAL)
+                }
+                const clearProgress = () => { if (progressTimer) clearInterval(progressTimer) }
+
                 // Stream output chunks if callback provided
                 let streamedStdout = ""
                 let streamedStderr = ""
@@ -138,6 +149,8 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                         })(),
                         timeout,
                     ])
+
+                    clearProgress()
 
                     if (result === "timeout") {
                         proc.kill()
@@ -180,6 +193,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                 ])
 
                 if (result === "timeout") {
+                    clearProgress()
                     // Capture partial output before killing
                     let partialOutput = ""
                     try {
@@ -197,6 +211,8 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                         errorCode: "TIMEOUT" as ToolErrorCode,
                     }
                 }
+
+                clearProgress()
 
                 const { exitCode, stdout, stderr } = result
                 const output = [

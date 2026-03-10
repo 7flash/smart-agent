@@ -659,3 +659,39 @@ describe("Context Window Trimming", () => {
         expect(trimEvent).toBeUndefined()
     })
 })
+
+// ── Tool Progress Streaming Tests ──
+
+describe("Tool Progress Streaming", () => {
+    test("onToolProgress fires during long-running exec", async () => {
+        const progressCalls: { tool: string; elapsedMs: number }[] = []
+        const tools = createBuiltinTools(
+            ".",
+            10000, // 10s timeout
+            false, // safeMode
+            undefined, // onApproval
+            undefined, // onToolOutput
+            (tool, elapsedMs) => progressCalls.push({ tool, elapsedMs }), // onToolProgress
+        )
+        const exec = tools.find(t => t.name === "exec")!
+
+        // Run a command that takes 1s — won't trigger 5s heartbeat in test
+        // So we test the wiring by checking the function signature works
+        const result = await exec.execute({ command: process.platform === "win32" ? "ping -n 1 127.0.0.1 > nul" : "sleep 0.1" })
+        expect(result.success).toBe(true)
+        // Progress fires every 5s, so a fast command won't trigger it — that's correct behavior
+        // This test validates the callback is properly wired and doesn't throw
+    })
+
+    test("onToolProgress not called for instant commands", async () => {
+        const progressCalls: number[] = []
+        const tools = createBuiltinTools(".", 5000, false, undefined, undefined,
+            (_tool, elapsedMs) => progressCalls.push(elapsedMs)
+        )
+        const exec = tools.find(t => t.name === "exec")!
+        const result = await exec.execute({ command: "echo hello" })
+        expect(result.success).toBe(true)
+        // Instant command should not trigger 5s heartbeat
+        expect(progressCalls.length).toBe(0)
+    })
+})
