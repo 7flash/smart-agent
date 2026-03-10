@@ -121,8 +121,7 @@ describe('Integration: Agent.plan()', () => {
 
         const events: any[] = [];
         try {
-            const agent = new Agent({ model: getModel() });
-            for await (const event of agent.plan(
+            for await (const event of Agent.plan(
                 `Create a file called ${testDir}/plan-test.txt with the text "planned"`,
                 { model: getModel(), cwd: testDir, maxIterations: 3 }
             )) {
