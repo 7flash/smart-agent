@@ -151,7 +151,41 @@ interface AgentConfig {
   toolTimeoutMs?: number           // Default: 30000
   systemPrompt?: string            // Extra system prompt text
   tools?: Tool[]                   // Additional custom tools
+  signal?: AbortSignal             // Cancel the agent loop
+  noStreaming?: boolean            // Disable streaming (returns token usage data)
+  safeMode?: boolean               // Block autonomous exec unless approved via onApproval
+  onApproval?: (tool, params) => Promise<boolean> | boolean  // Interactive approval callback
+  onToolOutput?: (tool, chunk) => void  // Real-time exec output streaming
 }
+```
+
+#### Safe Mode
+
+When `safeMode: true`, the agent cannot run shell commands without approval:
+
+```ts
+const agent = new Agent({
+  model: "gemini-2.5-flash",
+  safeMode: true,
+  // Interactive approval — ask the user before running commands
+  onApproval: async (tool, params) => {
+    const ok = confirm(`Run "${params.command}"?`)
+    return ok
+  },
+})
+```
+
+Without `onApproval`, safe mode blocks all exec calls with an error message.
+
+#### Streaming Exec Output
+
+Get real-time command output chunks instead of waiting for completion:
+
+```ts
+const agent = new Agent({
+  model: "gemini-2.5-flash",
+  onToolOutput: (tool, chunk) => process.stdout.write(chunk),
+})
 ```
 
 ### `agent.run(input): AsyncGenerator<AgentEvent>`
@@ -169,11 +203,15 @@ Dynamic mode — planner generates objectives from the prompt, then worker execu
 | `planning` | Planner generated objectives |
 | `awaiting_confirmation` | Waiting for user to confirm objectives (Session only) |
 | `iteration_start` | Loop iteration begins |
-| `thinking` | LLM explains what it's doing |
+| `thinking` / `thinking_delta` | LLM explains what it's doing (delta = streaming chunks) |
 | `tool_start` / `tool_result` | Tool execution |
+| `tool_output_delta` | Real-time exec output chunk (when `onToolOutput` is set) |
+| `approval_required` | Safe mode asked user for approval |
 | `objective_check` | Objectives validated |
+| `usage` | Token usage data (when `noStreaming` is set) |
 | `complete` | All objectives met |
 | `error` | Something failed (agent recovers) |
+| `cancelled` | Aborted via signal |
 | `max_iterations` | Gave up |
 
 ## Built-in Tools
@@ -183,9 +221,11 @@ Dynamic mode — planner generates objectives from the prompt, then worker execu
 | `read_file` | Read file contents |
 | `write_file` | Create/overwrite a file |
 | `edit_file` | Find-and-replace in a file |
-| `exec` | Run shell commands |
+| `exec` | Run shell commands (streams output via `onToolOutput`) |
 | `list_dir` | List directory contents (recursive) |
 | `search` | Search for text patterns across files |
+
+> **Parallel execution**: Read-only tools (`read_file`, `list_dir`, `search`) run concurrently via `Promise.all`. Write tools (`write_file`, `edit_file`, `exec`) run sequentially to preserve ordering.
 
 ### Custom Tools
 
