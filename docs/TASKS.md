@@ -8,6 +8,8 @@
 - [x] ~~**Parallel tool execution**~~ — ✅ DONE. Read-only tools (read_file, list_dir, search) now run concurrently via `Promise.all`. Write tools stay sequential.
 - [x] ~~**Tool result streaming**~~ — ✅ DONE. Added `onToolOutput` callback to `AgentConfig`. When provided, exec tool streams stdout/stderr chunks in real-time via `ReadableStream.getReader()`. New `tool_output_delta` event type.
 - [x] ~~**GitHub Actions CI**~~ — ✅ DONE. `ci.yml` runs `bun test` and `tsc --noEmit` on push/PR to main.
+- [ ] **Integration test suite** — Current tests are unit-only with mocks. Add integration tests that use real LLM APIs (gated behind env vars like `GEMINI_API_KEY`) to verify the full Agent → Session → Tool pipeline end-to-end.
+- [ ] **npm publish + versioning** — Package is `smart-agent-ai` on npm v1.0.0 but hasn't been updated since. Review API surface, bump version, and publish with the new features (safe mode, streaming, parallel tools).
 
 ## 📝 Architecture Notes
 - **Package**: `smart-agent-ai` on npm (v1.0.0)
