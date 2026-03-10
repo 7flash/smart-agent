@@ -8,7 +8,7 @@
 - [x] ~~**Parallel tool execution**~~ — ✅ DONE. Read-only tools (read_file, list_dir, search) now run concurrently via `Promise.all`. Write tools stay sequential.
 - [x] ~~**Tool result streaming**~~ — ✅ DONE. Added `onToolOutput` callback to `AgentConfig`. When provided, exec tool streams stdout/stderr chunks in real-time via `ReadableStream.getReader()`. New `tool_output_delta` event type.
 - [x] ~~**GitHub Actions CI**~~ — ✅ DONE. `ci.yml` runs `bun test` and `tsc --noEmit` on push/PR to main.
-- [ ] **Integration test suite** — Current tests are unit-only with mocks. Add integration tests that use real LLM APIs (gated behind env vars like `GEMINI_API_KEY`) to verify the full Agent → Session → Tool pipeline end-to-end.
+- [x] ~~**Integration test suite**~~ — ✅ DONE. `src/integration.test.ts` with 6 tests: Agent.run() file creation, error handling, Agent.plan() dynamic objectives, multi-turn conversation history, abort signal, tool call parsing. All gated behind API keys. Total: 50 tests, 80 expect() calls.
 - [x] ~~**npm publish + versioning**~~ — ✅ DONE. Published `smart-agent-ai@2.0.0` to npm. CHANGELOG.md created with 3 breaking changes, 8 features, 4 improvements, 4 fixes documented. Description and keywords updated.
 
 ## 📝 Architecture Notes
