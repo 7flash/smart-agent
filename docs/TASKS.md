@@ -12,13 +12,13 @@
 - [x] ~~**npm publish + versioning**~~ — ✅ DONE. Published `smart-agent-ai@2.0.0` to npm. CHANGELOG.md created with 3 breaking changes, 8 features, 4 improvements, 4 fixes documented. Description and keywords updated.
 
 ## 🟡 Priority: Improve (Backlog)
+- [x] ~~**Structured error classification**~~ — ✅ DONE. New `errors.ts` with `ToolError` hierarchy (`ToolTimeoutError`, `ToolPermissionError`, `ToolNotFoundError`, `ToolValidationError`) + `ToolErrorCode` type. `ToolResult` now has optional `errorCode` field. All 6 tools tag errors with codes (TIMEOUT, PERMISSION_DENIED, NOT_FOUND, VALIDATION, EXEC_FAILED, UNKNOWN). `classifyError()` utility for string-to-code mapping. 10 new tests. Total: 60 tests, 96 expect() calls.
 - [ ] **Tool execution progress streaming** — Long-running tools (exec commands > 5s) should emit periodic progress events so callers know the tool is still alive. Currently only `tool_output_delta` fires on stdout/stderr.
-- [ ] **Structured error classification** — Tool errors are thrown as generic `Error`. Add `ToolError`, `TimeoutError`, `PermissionError` subclasses so callers can handle them differently (e.g., retry on timeout, abort on permission).
 - [ ] **Agent memory context window limit** — Session memory grows unbounded. Add configurable `maxContextTokens` that auto-summarizes older messages when approaching the limit.
 
 ## 📝 Architecture Notes
 - **Package**: `smart-agent-ai` on npm (v2.1.0)
-- **Tests**: 50 passing (80 expect() calls) — `bun test`
+- **Tests**: 60 passing (96 expect() calls) — `bun test`
 - **Core**: `Agent` (single-shot loop), `Session` (multi-turn with planner)
 - **Tools**: 6 built-in (read/write/edit/exec/list/search) + custom tool support
 - **LLM**: Via jsx-ai (Gemini, Claude, DeepSeek, OpenAI)

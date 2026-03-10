@@ -1,6 +1,8 @@
 // smart-agent/src/tools.ts
 // 6 built-in tools: read_file, write_file, edit_file, exec, list_dir, search
 import type { Tool, ToolResult } from "./types"
+import type { ToolErrorCode } from "./errors"
+import { classifyError } from "./errors"
 import { measure, measureSync } from "measure-fn"
 
 function resolvePath(cwd: string, filePath: string): string {
@@ -22,11 +24,11 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
             execute: (params) => measure('tool:read_file', async () => {
                 const fullPath = resolvePath(cwd, params.path)
                 const file = Bun.file(fullPath)
-                if (!(await file.exists())) return { success: false, output: "", error: `File not found: ${fullPath}` }
+                if (!(await file.exists())) return { success: false, output: "", error: `File not found: ${fullPath}`, errorCode: "NOT_FOUND" as ToolErrorCode }
                 const content = await file.text()
                 const max = 100_000
                 return { success: true, output: content.length > max ? content.substring(0, max) + `\n...[truncated]` : content }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
 
         // ── write_file ──
@@ -46,7 +48,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                 }
                 await Bun.write(fullPath, params.content)
                 return { success: true, output: `Wrote ${params.content.length} chars to ${fullPath}` }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
 
         // ── edit_file ──
@@ -61,14 +63,14 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
             execute: (params) => measure('tool:edit_file', async () => {
                 const fullPath = resolvePath(cwd, params.path)
                 const file = Bun.file(fullPath)
-                if (!(await file.exists())) return { success: false, output: "", error: `File not found: ${fullPath}` }
+                if (!(await file.exists())) return { success: false, output: "", error: `File not found: ${fullPath}`, errorCode: "NOT_FOUND" as ToolErrorCode }
                 const content = await file.text()
                 const count = content.split(params.target).length - 1
-                if (count === 0) return { success: false, output: "", error: `Target not found in ${fullPath}` }
-                if (count > 1) return { success: false, output: "", error: `Target found ${count} times — must be unique. Provide more context.` }
+                if (count === 0) return { success: false, output: "", error: `Target not found in ${fullPath}`, errorCode: "NOT_FOUND" as ToolErrorCode }
+                if (count > 1) return { success: false, output: "", error: `Target found ${count} times — must be unique. Provide more context.`, errorCode: "VALIDATION" as ToolErrorCode }
                 await Bun.write(fullPath, content.replace(params.target, params.replacement))
                 return { success: true, output: `Replaced in ${fullPath} (${params.target.length} → ${params.replacement.length} chars)` }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
 
         // ── exec ──
@@ -84,15 +86,15 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     if (onApproval) {
                         const approved = await onApproval("exec", params)
                         if (!approved) {
-                            return { success: false, output: "", error: `Command rejected by user: "${params.command}". The user did not approve this command.` }
+                            return { success: false, output: "", error: `Command rejected by user: "${params.command}". The user did not approve this command.`, errorCode: "PERMISSION_DENIED" as ToolErrorCode }
                         }
                         // Approved — fall through to execute
                     } else {
-                        return { success: false, output: "", error: "Safe Mode is ON. You are not allowed to execute shell commands autonomously. Ask the user to run this command instead." }
+                        return { success: false, output: "", error: "Safe Mode is ON. You are not allowed to execute shell commands autonomously. Ask the user to run this command instead.", errorCode: "PERMISSION_DENIED" as ToolErrorCode }
                     }
                 }
                 if (!params.command || typeof params.command !== "string") {
-                    return { success: false, output: "", error: "command parameter is required" }
+                    return { success: false, output: "", error: "command parameter is required", errorCode: "VALIDATION" as ToolErrorCode }
                 }
                 const isWin = process.platform === "win32"
                 const shellArgs = isWin ? ["cmd", "/c", params.command] : ["bash", "-c", params.command]
@@ -143,7 +145,8 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                         return {
                             success: false,
                             output: streamedStdout || "",
-                            error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed.`
+                            error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed.`,
+                            errorCode: "TIMEOUT" as ToolErrorCode,
                         }
                     }
 
@@ -160,6 +163,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                         success: exitCode === 0,
                         output: truncated,
                         error: exitCode !== 0 ? `Exit code ${exitCode}` : undefined,
+                        errorCode: exitCode !== 0 ? "EXEC_FAILED" as ToolErrorCode : undefined,
                     }
                 }
 
@@ -189,7 +193,8 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     return {
                         success: false,
                         output: partialOutput || "",
-                        error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed. Consider breaking this into smaller steps or increasing the timeout.`
+                        error: `Command timed out after ${Math.round(timeoutMs / 1000)}s: "${cmd}". The process was killed. Consider breaking this into smaller steps or increasing the timeout.`,
+                        errorCode: "TIMEOUT" as ToolErrorCode,
                     }
                 }
 
@@ -206,8 +211,9 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     success: exitCode === 0,
                     output: truncated,
                     error: exitCode !== 0 ? `Exit code ${exitCode}` : undefined,
+                    errorCode: exitCode !== 0 ? "EXEC_FAILED" as ToolErrorCode : undefined,
                 }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
 
         // ── list_dir ──
@@ -258,7 +264,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                 walk(fullPath, 1, "")
                 if (results.length >= maxEntries) results.push(`\n...[truncated at ${maxEntries} entries]`)
                 return { success: true, output: results.join("\n") || "(empty directory)" }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
 
         // ── search ──
@@ -336,7 +342,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                 if (matches.length === 0) return { success: true, output: `No matches for "${pattern}"` }
                 const suffix = matches.length >= maxMatches ? `\n...[capped at ${maxMatches} matches]` : ""
                 return { success: true, output: matches.join("\n") + suffix }
-            }, (e: any) => ({ success: false, output: "", error: e.message })) as Promise<ToolResult>,
+            }, (e: any) => ({ success: false, output: "", error: e.message, errorCode: classifyError(e.message) })) as Promise<ToolResult>,
         },
     ]
 }

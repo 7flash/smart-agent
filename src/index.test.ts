@@ -268,6 +268,70 @@ describe("Tools", () => {
 
         rmSync(tmpDir, { recursive: true, force: true })
     })
+
+    test("read_file missing file returns errorCode NOT_FOUND", async () => {
+        const tools = createBuiltinTools(".", 5000)
+        const readFile = tools.find(t => t.name === "read_file")!
+        const result = await readFile.execute({ path: "definitely-missing-9999.txt" })
+        expect(result.success).toBe(false)
+        expect(result.errorCode).toBe("NOT_FOUND")
+    })
+
+    test("exec with safeMode returns errorCode PERMISSION_DENIED", async () => {
+        const tools = createBuiltinTools(".", 5000, true) // safeMode = true, no onApproval
+        const exec = tools.find(t => t.name === "exec")!
+        const result = await exec.execute({ command: "echo danger" })
+        expect(result.success).toBe(false)
+        expect(result.errorCode).toBe("PERMISSION_DENIED")
+    })
+
+    test("exec with rejected approval returns errorCode PERMISSION_DENIED", async () => {
+        const tools = createBuiltinTools(".", 5000, true, async () => false) // safeMode + always reject
+        const exec = tools.find(t => t.name === "exec")!
+        const result = await exec.execute({ command: "echo test" })
+        expect(result.success).toBe(false)
+        expect(result.errorCode).toBe("PERMISSION_DENIED")
+    })
+
+    test("exec missing command returns errorCode VALIDATION", async () => {
+        const tools = createBuiltinTools(".", 5000)
+        const exec = tools.find(t => t.name === "exec")!
+        const result = await exec.execute({ command: "" })
+        expect(result.success).toBe(false)
+        expect(result.errorCode).toBe("VALIDATION")
+    })
+})
+
+// ── Error Classification Tests ──
+
+describe("Error Classification", () => {
+    const { classifyError } = require("./errors")
+
+    test("classifies timeout errors", () => {
+        expect(classifyError("Command timed out after 30s")).toBe("TIMEOUT")
+    })
+
+    test("classifies permission errors", () => {
+        expect(classifyError("Safe Mode is ON")).toBe("PERMISSION_DENIED")
+        expect(classifyError("Command rejected by user")).toBe("PERMISSION_DENIED")
+    })
+
+    test("classifies not-found errors", () => {
+        expect(classifyError("File not found: /tmp/missing.txt")).toBe("NOT_FOUND")
+    })
+
+    test("classifies validation errors", () => {
+        expect(classifyError("command parameter is required")).toBe("VALIDATION")
+        expect(classifyError("Target found 3 times — must be unique")).toBe("VALIDATION")
+    })
+
+    test("classifies exec failures", () => {
+        expect(classifyError("Exit code 1")).toBe("EXEC_FAILED")
+    })
+
+    test("classifies unknown errors", () => {
+        expect(classifyError("something weird happened")).toBe("UNKNOWN")
+    })
 })
 
 // ── Agent Tests ──

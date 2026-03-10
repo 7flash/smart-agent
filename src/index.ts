@@ -8,6 +8,8 @@ export type { ArcPuzzle } from "./arc"
 export { callText, streamLLM } from "jsx-ai"
 export { loadSkills, formatSkillsForPrompt } from "./skills"
 export type { Skill } from "./skills"
+export { ToolError, ToolTimeoutError, ToolPermissionError, ToolNotFoundError, ToolValidationError, classifyError } from "./errors"
+export type { ToolErrorCode } from "./errors"
 export type {
     AgentConfig,
     AgentEvent,
