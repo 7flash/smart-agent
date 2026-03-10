@@ -2,11 +2,11 @@
 
 ## 🟡 Priority: Improve
 - [x] ~~**Tool execution timeout handling**~~ — ✅ DONE. Timeout now captures partial stdout/stderr before killing, includes command name and human-friendly duration in error message, suggests mitigation.
-- [ ] **Safe mode UX** — When `safeMode: true`, the agent is told to "ask the user" but there's no actual interactive prompt mechanism. Could add a callback or event.
+- [x] ~~**Safe mode UX**~~ — ✅ DONE. Added `onApproval` callback to `AgentConfig`. When safeMode is ON, exec tool calls `onApproval(tool, params)` to let the user approve/reject interactively. Without the callback, falls back to blocking error. New `approval_required` event type.
 
 ## 🟢 Priority: Features
 - [x] ~~**Parallel tool execution**~~ — ✅ DONE. Read-only tools (read_file, list_dir, search) now run concurrently via `Promise.all`. Write tools stay sequential.
-- [ ] **Tool result streaming** — Stream large `exec` outputs to the LLM incrementally instead of waiting for the full result.
+- [x] ~~**Tool result streaming**~~ — ✅ DONE. Added `onToolOutput` callback to `AgentConfig`. When provided, exec tool streams stdout/stderr chunks in real-time via `ReadableStream.getReader()`. New `tool_output_delta` event type.
 - [x] ~~**GitHub Actions CI**~~ — ✅ DONE. `ci.yml` runs `bun test` and `tsc --noEmit` on push/PR to main.
 
 ## 📝 Architecture Notes
