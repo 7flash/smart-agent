@@ -1,5 +1,6 @@
 // smart-agent/src/types.ts
 // All type definitions for the smart-agent package
+import type { ToolErrorCode } from "./errors"
 
 /** A built-in tool the agent can invoke */
 export interface Tool {
@@ -14,6 +15,8 @@ export interface ToolResult {
     success: boolean
     output: string
     error?: string
+    /** Structured error classification — enables programmatic handling without string-parsing */
+    errorCode?: ToolErrorCode
 }
 
 // Skills are .md files with YAML frontmatter, parsed by jsx-ai's parseSkillFile.
