@@ -13,7 +13,7 @@
 
 ## 📝 Architecture Notes
 - **Package**: `smart-agent-ai` on npm (v2.0.0)
-- **Tests**: 44 passing (80 expect() calls) — `bun test`
+- **Tests**: 50 passing (80 expect() calls) — `bun test`
 - **Core**: `Agent` (single-shot loop), `Session` (multi-turn with planner)
 - **Tools**: 6 built-in (read/write/edit/exec/list/search) + custom tool support
 - **LLM**: Via jsx-ai (Gemini, Claude, DeepSeek, OpenAI)
