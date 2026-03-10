@@ -316,22 +316,59 @@ export class Agent {
                         : "(empty)")
                 state.messages.push({ role: "assistant", content: assistantContent })
 
-                // ── Execute tool calls ──
+                // ── Execute tool calls (parallel for reads, sequential for writes) ──
                 if (invocations.length > 0) {
                     const toolMessages: string[] = []
 
-                    for (const inv of invocations) {
+                    // Classify tools: reads can run in parallel, writes must be sequential
+                    const READ_TOOLS = new Set(["read_file", "list_dir", "search"])
+                    const readInvocations: { idx: number; inv: ToolInvocation }[] = []
+                    const writeInvocations: { idx: number; inv: ToolInvocation }[] = []
+
+                    for (let j = 0; j < invocations.length; j++) {
+                        const inv = invocations[j]
+                        if (READ_TOOLS.has(inv.tool)) {
+                            readInvocations.push({ idx: j, inv })
+                        } else {
+                            writeInvocations.push({ idx: j, inv })
+                        }
+                    }
+
+                    // Results array to maintain original order
+                    const results: Array<{ idx: number; inv: ToolInvocation; result: ToolResult; error?: string }> = []
+
+                    // Phase 1: Execute reads in parallel
+                    if (readInvocations.length > 0) {
+                        const readPromises = readInvocations.map(async ({ idx, inv }) => {
+                            const tool = this.tools.get(inv.tool)
+                            if (!tool) {
+                                const err = `Unknown tool: "${inv.tool}". Available: ${[...this.tools.keys()].join(", ")}`
+                                return { idx, inv, result: { success: false, output: "", error: err } as ToolResult, error: err }
+                            }
+                            const result = await measure(`Tool: ${inv.tool}`, () => tool.execute(inv.params)) as ToolResult
+                            return { idx, inv, result }
+                        })
+                        const readResults = await Promise.all(readPromises)
+                        results.push(...readResults)
+                    }
+
+                    // Phase 2: Execute writes sequentially
+                    for (const { idx, inv } of writeInvocations) {
                         const tool = this.tools.get(inv.tool)
                         if (!tool) {
                             const err = `Unknown tool: "${inv.tool}". Available: ${[...this.tools.keys()].join(", ")}`
-                            toolMessages.push(`[${inv.tool}] ERROR: ${err}`)
-                            yield { type: "tool_result", iteration: i, tool: inv.tool, result: { success: false, output: "", error: err } }
+                            results.push({ idx, inv, result: { success: false, output: "", error: err }, error: err })
                             continue
                         }
-
-                        yield { type: "tool_start", iteration: i, tool: inv.tool, params: inv.params }
-
                         const result = await measure(`Tool: ${inv.tool}`, () => tool.execute(inv.params)) as ToolResult
+                        results.push({ idx, inv, result })
+                    }
+
+                    // Sort back to original order and emit events
+                    results.sort((a, b) => a.idx - b.idx)
+
+                    for (const { inv, result } of results) {
+                        yield { type: "tool_start", iteration: i, tool: inv.tool, params: inv.params }
 
                         state.toolHistory.push({ iteration: i, tool: inv.tool, params: inv.params, result })
 
