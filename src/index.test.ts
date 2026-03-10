@@ -592,3 +592,70 @@ describe("Tool call text parsing", () => {
         expect(result).toHaveLength(0)
     })
 })
+
+// ── Context Window Trimming Tests ──
+
+describe("Context Window Trimming", () => {
+    test("emits context_trimmed when messages exceed maxContextTokens", async () => {
+        const agent = new Agent({
+            model: "gpt-4o-mini",
+            maxIterations: 1,
+            maxContextTokens: 100, // Very small — will force trimming
+            noStreaming: true,
+            objectives: [{
+                name: "test",
+                description: "test objective",
+                validate: () => ({ met: true, reason: "done" }),
+            }],
+        })
+
+        // Inject large message history by running with a huge prompt
+        const longHistory = Array.from({ length: 20 }, (_, i) =>
+            ({ role: "user" as const, content: `Message ${i}: ${"x".repeat(200)}` })
+        )
+
+        const events: any[] = []
+        try {
+            for await (const event of agent.run(longHistory)) {
+                events.push(event)
+                if (event.type === "context_trimmed") break // Found what we need
+                if (event.type === "error") break // LLM will fail without key, that's fine
+            }
+        } catch {
+            // Expected — no API key in test env
+        }
+
+        const trimEvent = events.find(e => e.type === "context_trimmed")
+        expect(trimEvent).toBeDefined()
+        expect(trimEvent!.originalTokens).toBeGreaterThan(100)
+        expect(trimEvent!.trimmedTokens).toBeLessThan(trimEvent!.originalTokens)
+        expect(trimEvent!.removedMessages).toBeGreaterThan(0)
+    })
+
+    test("does not trim when within budget", async () => {
+        const agent = new Agent({
+            model: "gpt-4o-mini",
+            maxIterations: 1,
+            maxContextTokens: 1_000_000, // Very large — no trimming needed
+            noStreaming: true,
+            objectives: [{
+                name: "test",
+                description: "test objective",
+                validate: () => ({ met: true, reason: "done" }),
+            }],
+        })
+
+        const events: any[] = []
+        try {
+            for await (const event of agent.run("hello")) {
+                events.push(event)
+                if (event.type === "error") break
+            }
+        } catch {
+            // Expected — no API key
+        }
+
+        const trimEvent = events.find(e => e.type === "context_trimmed")
+        expect(trimEvent).toBeUndefined()
+    })
+})

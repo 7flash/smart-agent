@@ -1,6 +1,6 @@
 {
     "name": "smart-agent-ai",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "Autonomous AI agent framework for Bun — skills, objectives, parallel tools, safe mode, LLM streaming",
     "type": "module",
     "main": "src/index.ts",

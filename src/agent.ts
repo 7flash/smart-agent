@@ -210,6 +210,21 @@ export class Agent {
                 state.messages.push({ role: "user", content: injected })
             }
 
+            // ── Context window trimming ──
+            if (this.config.maxContextTokens) {
+                const trimResult = this.trimContext(state.messages, this.config.maxContextTokens)
+                if (trimResult) {
+                    state.messages = trimResult.messages
+                    yield {
+                        type: "context_trimmed",
+                        iteration: i,
+                        originalTokens: trimResult.originalTokens,
+                        trimmedTokens: trimResult.trimmedTokens,
+                        removedMessages: trimResult.removedMessages,
+                    }
+                }
+            }
+
             try {
                 // ── Stream LLM response — yield thinking_delta events in real-time ──
                 let accumulated = ""
@@ -514,6 +529,64 @@ export class Agent {
         })
 
         return await jsxCallLLM(tree)
+    }
+
+    // ── Context Window Trimming ──
+
+    /** Estimate token count from text (~4 chars per token) */
+    private estimateTokens(messages: Message[]): number {
+        let chars = 0
+        for (const m of messages) chars += m.content.length + 10 // +10 for role/metadata overhead
+        return Math.ceil(chars / 4)
+    }
+
+    /**
+     * Trim context to stay within maxContextTokens.
+     * Strategy: keep system prompt (first message) + last KEEP_RECENT messages.
+     * Replace middle messages with a brief summary.
+     * Returns null if no trimming needed.
+     */
+    private trimContext(messages: Message[], maxTokens: number): {
+        messages: Message[]
+        originalTokens: number
+        trimmedTokens: number
+        removedMessages: number
+    } | null {
+        const originalTokens = this.estimateTokens(messages)
+        if (originalTokens <= maxTokens) return null
+
+        const KEEP_RECENT = 4 // Keep last 4 messages for continuity
+        if (messages.length <= KEEP_RECENT + 1) return null // Can't trim further
+
+        // Find the system prompt (always index 0)
+        const systemMsg = messages[0]!
+        const recentMsgs = messages.slice(-KEEP_RECENT)
+        const removedMsgs = messages.slice(1, messages.length - KEEP_RECENT)
+
+        // Build summary of removed messages
+        const toolCount = removedMsgs.filter(m => m.role === "tool").length
+        const assistantCount = removedMsgs.filter(m => m.role === "assistant").length
+        const userCount = removedMsgs.filter(m => m.role === "user").length
+
+        const parts: string[] = []
+        if (userCount > 0) parts.push(`${userCount} user messages`)
+        if (assistantCount > 0) parts.push(`${assistantCount} assistant responses`)
+        if (toolCount > 0) parts.push(`${toolCount} tool results`)
+
+        const summaryMsg: Message = {
+            role: "system",
+            content: `[Context trimmed: ${removedMsgs.length} earlier messages removed (${parts.join(", ")}) to stay within token budget. Focus on the most recent context below.]`,
+        }
+
+        const trimmed = [systemMsg, summaryMsg, ...recentMsgs]
+        const trimmedTokens = this.estimateTokens(trimmed)
+
+        return {
+            messages: trimmed,
+            originalTokens,
+            trimmedTokens,
+            removedMessages: removedMsgs.length,
+        }
     }
 
     // ── Internal ──
