@@ -11,6 +11,11 @@
 - [x] ~~**Integration test suite**~~ — ✅ DONE. `src/integration.test.ts` with 6 tests: Agent.run() file creation, error handling, Agent.plan() dynamic objectives, multi-turn conversation history, abort signal, tool call parsing. All gated behind API keys. Total: 50 tests, 80 expect() calls.
 - [x] ~~**npm publish + versioning**~~ — ✅ DONE. Published `smart-agent-ai@2.0.0` to npm. CHANGELOG.md created with 3 breaking changes, 8 features, 4 improvements, 4 fixes documented. Description and keywords updated.
 
+## 🟡 Priority: Improve (Backlog)
+- [ ] **Tool execution progress streaming** — Long-running tools (exec commands > 5s) should emit periodic progress events so callers know the tool is still alive. Currently only `tool_output_delta` fires on stdout/stderr.
+- [ ] **Structured error classification** — Tool errors are thrown as generic `Error`. Add `ToolError`, `TimeoutError`, `PermissionError` subclasses so callers can handle them differently (e.g., retry on timeout, abort on permission).
+- [ ] **Agent memory context window limit** — Session memory grows unbounded. Add configurable `maxContextTokens` that auto-summarizes older messages when approaching the limit.
+
 ## 📝 Architecture Notes
 - **Package**: `smart-agent-ai` on npm (v2.1.0)
 - **Tests**: 50 passing (80 expect() calls) — `bun test`
