@@ -1,6 +1,6 @@
 {
     "name": "smart-agent-ai",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Autonomous AI agent framework for Bun — skills, objectives, parallel tools, safe mode, LLM streaming",
     "type": "module",
     "main": "src/index.ts",
@@ -29,7 +29,6 @@
     },
     "author": "7flash",
     "dependencies": {
-        "gx402": "^1.5.1",
         "js-yaml": "^4.1.0",
         "jsx-ai": "0.1.5",
         "measure-fn": "^3.10.2"
