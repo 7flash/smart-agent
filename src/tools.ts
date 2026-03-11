@@ -97,7 +97,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     return { success: false, output: "", error: "command parameter is required", errorCode: "VALIDATION" as ToolErrorCode }
                 }
                 const isWin = process.platform === "win32"
-                const shellArgs = isWin ? ["cmd", "/c", params.command] : ["bash", "-c", params.command]
+                const shellArgs = isWin ? ["powershell", "-NoProfile", "-Command", params.command] : ["bash", "-c", params.command]
                 const proc = Bun.spawn(shellArgs, {
                     cwd,
                     stdout: "pipe",
