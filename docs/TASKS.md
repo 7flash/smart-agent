@@ -19,9 +19,18 @@
 ## 🟢 Priority: Features
 - [x] ~~**Session Validator Mode**~~ — ✅ DONE. Added `runWithValidators()` to Session class for deep iteration with custom validators. Agent runs in iteration loop checking validators each round.
 - [x] ~~**Session Heartbeat Mode**~~ — ✅ DONE. Added background `startHeartbeat()` that validates long-term objectives independently while main agent works. Emits `heartbeat_objective_met` events when objectives pass. `addHeartbeatObjective()` adds objectives dynamically. `getHeartbeatStatus()` reports progress.
+- [x] ~~**Env passthrough to exec tool**~~ — ✅ DONE. `AgentConfig.env` passes additional environment variables to the exec tool's subprocess, enabling STATE_URL injection for scheduled scripts.
+- [x] ~~**Session history captures actual response text**~~ — ✅ DONE. `handleConversational` and `handleTask` now accumulate thinking_delta events into real response text instead of storing placeholder strings like "Responded to: ...".
+- [x] ~~**Graceful empty planner fallback**~~ — ✅ DONE. If planner returns an empty objective list, session falls back to conversational mode instead of surfacing an error.
+- [x] ~~**Qwen/DeepSeek provider detection**~~ — ✅ DONE. Agent auto-detects Qwen and DeepSeek models and routes them through the OpenAI-compatible provider.
+
+## 🟡 Priority: Improve
+- [ ] **Streaming response text in tool cards** — The `handleTask` path only captures thinking text, not tool output summaries. Consider a richer history entry.
+- [ ] **Session serialization/restore** — Allow saving and loading session state for persistence across restarts.
+- [ ] **Planner model routing** — Use a cheaper/faster model for the planner step when the main model is expensive (e.g. Claude Opus).
 
 ## 📝 Architecture Notes
-- **Package**: `smart-agent-ai` on npm (v2.5.0)
+- **Package**: `smart-agent-ai` on npm (v2.5.1)
 - **Tests**: 64 passing (104 expect() calls) — `bun test`
 - **Core**: `Agent` (single-shot loop), `Session` (multi-turn with planner)
 - **Tools**: 6 built-in (read/write/edit/exec/list/search) + custom tool support

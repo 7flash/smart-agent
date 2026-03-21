@@ -177,15 +177,20 @@ export class Session {
 
         this.abortController = new AbortController()
 
+        let responseText = ''
         for await (const event of agent.run(executorInput, this.abortController.signal)) {
             yield event
+
+            // Accumulate actual response text from thinking events
+            if (event.type === 'thinking_delta') responseText += (event as any).delta || ''
+            else if (event.type === 'thinking' && !responseText) responseText = (event as any).message || ''
 
             if (event.type === "complete") {
                 this.completedObjectives.push(respondObjective)
                 this.pendingObjectives = []
                 this.history.push({
                     role: "assistant",
-                    content: `Responded to: "${message}"`,
+                    content: responseText || `Responded to: "${message}"`,
                 })
             }
         }
@@ -407,16 +412,24 @@ export class Session {
         // Reset abort controller for this turn
         this.abortController = new AbortController()
 
+        let taskResponseText = ''
         for await (const event of agent.run(executorInput, this.abortController.signal)) {
             yield event
+
+            // Accumulate actual response text
+            if (event.type === 'thinking_delta') taskResponseText += (event as any).delta || ''
+            else if (event.type === 'thinking' && !taskResponseText) taskResponseText = (event as any).message || ''
 
             // Track completion — move new objectives to completed
             if (event.type === "complete") {
                 this.completedObjectives.push(...newObjectives)
                 this.pendingObjectives = []
+                const summary = taskResponseText
+                    ? taskResponseText.slice(0, 500)
+                    : `Completed objectives: ${newObjectives.map(p => p.name).join(", ")}`
                 this.history.push({
                     role: "assistant",
-                    content: `Completed objectives: ${newObjectives.map(p => p.name).join(", ")}`,
+                    content: summary,
                 })
             }
         }
