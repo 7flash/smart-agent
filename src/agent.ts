@@ -44,7 +44,7 @@ export class Agent {
 
         // Register built-in tools + custom tools
         this.tools = new Map()
-        for (const tool of createBuiltinTools(this.config.cwd, this.config.toolTimeoutMs, this.config.safeMode, this.config.onApproval, this.config.onToolOutput, this.config.onToolProgress)) {
+        for (const tool of createBuiltinTools(this.config.cwd, this.config.toolTimeoutMs, this.config.safeMode, this.config.onApproval, this.config.onToolOutput, this.config.onToolProgress, this.config.env)) {
             this.tools.set(tool.name, tool)
         }
         if (config.tools) {
@@ -490,6 +490,10 @@ export class Agent {
     private async callWithJsxAi(messages: Message[]): Promise<LLMResponse> {
         const h = jsx
 
+        // Detect provider from model name
+        const provider = this.config.model.startsWith("qwen") || this.config.model.startsWith("deepseek") 
+            ? "openai" : undefined
+
         // Build tool nodes from registered tools
         const toolNodes = [...this.tools.values()].map(t =>
             h("tool", {
@@ -522,6 +526,7 @@ export class Agent {
             model: this.config.model,
             temperature: this.config.temperature,
             maxTokens: this.config.maxTokens,
+            provider: provider as any,
             children: [
                 ...messageNodes,
                 ...toolNodes,

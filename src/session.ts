@@ -339,23 +339,24 @@ export class Session {
                 json = json.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
             }
             const parsed: PlannedObjective[] = JSON.parse(json)
-            if (!Array.isArray(parsed) || parsed.length === 0) {
-                throw new Error("Empty objectives")
+            if (!Array.isArray(parsed)) {
+                throw new Error("Planner did not return a JSON array")
+            }
+            if (parsed.length === 0) {
+                return null
             }
             return parsed
         })
 
-        if (!newObjectives) {
-            yield {
-                type: "error",
-                iteration: -1,
-                error: `Planner failed to parse objectives.\nRaw: ${(plannerResponse || "").substring(0, 300)}`,
-            }
-            return
-        }
-
         // Store planner response in history for future refinement
         this.plannerHistory.push({ role: "assistant", content: plannerResponse || "" })
+
+        if (!newObjectives) {
+            // Graceful fallback: if the planner returns an empty list, treat the turn
+            // like a normal conversational response instead of surfacing an error.
+            yield* this.handleConversational(message, turn)
+            return
+        }
 
         // The planned list for THIS turn = only the new objectives
         // (completed objectives stay in completedObjectives and are not re-run)

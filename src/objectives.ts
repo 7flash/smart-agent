@@ -228,9 +228,9 @@ For "tell me a joke every minute":
 [
   {
     "name": "create_joke_script",
-    "description": "Create scripts/joke-sender.ts following the SCRIPT TEMPLATE. Include 10+ jokes in an array. Use getState/setState to track used jokes so they never repeat. Output one random unused joke to stdout.",
+    "description": "Create scripts/joke-sender.ts following the EXACT SCRIPT TEMPLATE. Include 10+ jokes in an array. Inline the real STATE_URL-based getState/setState helpers exactly as shown. Do NOT use declare function or placeholder comments. Output one random unused joke to stdout.",
     "type": "file_exists",
-    "params": { "path": "scripts/joke-sender.ts", "contains": "getState" }
+    "params": { "path": "scripts/joke-sender.ts", "contains": "const STATE_URL = process.env.STATE_URL!;" }
   },
   {
     "name": "schedule_joke_task",

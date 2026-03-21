@@ -677,7 +677,7 @@ describe("Tool Progress Streaming", () => {
 
         // Run a command that takes 1s — won't trigger 5s heartbeat in test
         // So we test the wiring by checking the function signature works
-        const result = await exec.execute({ command: process.platform === "win32" ? "ping -n 1 127.0.0.1 > nul" : "sleep 0.1" })
+        const result = await exec.execute({ command: process.platform === "win32" ? "$null = ping -n 1 127.0.0.1" : "sleep 0.1" })
         expect(result.success).toBe(true)
         // Progress fires every 5s, so a fast command won't trigger it — that's correct behavior
         // This test validates the callback is properly wired and doesn't throw

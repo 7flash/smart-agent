@@ -12,7 +12,7 @@ function resolvePath(cwd: string, filePath: string): string {
     return `${cwd}${sep}${filePath}`
 }
 
-export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false, onApproval?: (tool: string, params: Record<string, any>) => Promise<boolean> | boolean, onToolOutput?: (tool: string, chunk: string) => void, onToolProgress?: (tool: string, elapsedMs: number) => void): Tool[] {
+export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boolean = false, onApproval?: (tool: string, params: Record<string, any>) => Promise<boolean> | boolean, onToolOutput?: (tool: string, chunk: string) => void, onToolProgress?: (tool: string, elapsedMs: number) => void, env?: Record<string, string>): Tool[] {
     return [
         // ── read_file ──
         {
@@ -102,7 +102,7 @@ export function createBuiltinTools(cwd: string, timeoutMs: number, safeMode: boo
                     cwd,
                     stdout: "pipe",
                     stderr: "pipe",
-                    env: { ...process.env },
+                    env: { ...process.env, ...env },
                 })
 
                 // ── Heartbeat progress timer — fires every 5s while command runs ──

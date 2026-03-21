@@ -16,8 +16,12 @@
 - [x] ~~**Tool execution progress streaming**~~ — ✅ DONE. New `onToolProgress` callback in AgentConfig + `tool_progress` event type. 5-second interval heartbeat timer fires during exec tool execution. Cleared on completion/timeout. Properly wired through `createBuiltinTools` → Agent constructor. 2 new tests. Total: 64 tests, 104 expect() calls.
 - [x] ~~**Agent memory context window limit**~~ — ✅ DONE. New `maxContextTokens` config option. `trimContext()` estimates tokens (~4 chars/token), keeps system prompt + last 4 messages, replaces middle with summary. Emits `context_trimmed` event with original/trimmed token counts. 2 new tests. Total: 62 tests, 101 expect() calls.
 
+## 🟢 Priority: Features
+- [x] ~~**Session Validator Mode**~~ — ✅ DONE. Added `runWithValidators()` to Session class for deep iteration with custom validators. Agent runs in iteration loop checking validators each round.
+- [x] ~~**Session Heartbeat Mode**~~ — ✅ DONE. Added background `startHeartbeat()` that validates long-term objectives independently while main agent works. Emits `heartbeat_objective_met` events when objectives pass. `addHeartbeatObjective()` adds objectives dynamically. `getHeartbeatStatus()` reports progress.
+
 ## 📝 Architecture Notes
-- **Package**: `smart-agent-ai` on npm (v2.4.0)
+- **Package**: `smart-agent-ai` on npm (v2.5.0)
 - **Tests**: 64 passing (104 expect() calls) — `bun test`
 - **Core**: `Agent` (single-shot loop), `Session` (multi-turn with planner)
 - **Tools**: 6 built-in (read/write/edit/exec/list/search) + custom tool support
